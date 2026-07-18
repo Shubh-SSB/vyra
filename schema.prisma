@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+enum SessionPlatform {
+  WEB
+  ANDROID
+  IOS
+  MACOS
+  WINDOWS
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  displayName  String
+  email        String?  @unique
+  phone        String?  @unique
+
+  passwordHash String?
+
+  avatar       String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  platform     SessionPlatform
+
+  expiresAt    DateTime
+
+  createdAt    DateTime @default(now())
+  userId       String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

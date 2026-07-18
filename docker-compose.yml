@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:16
+
+    container_name: vyra-postgres
+
+    restart: always
+
+    environment:
+      POSTGRES_USER: vyra
+      POSTGRES_PASSWORD: vyra
+      POSTGRES_DB: vyra
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+
+    image: redis:7
+
+    container_name: vyra-redis
+
+    restart: always
+
+    ports:
+      - "6379:6379"
+
+volumes:
+
+  postgres-data:

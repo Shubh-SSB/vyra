@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output and framework caches
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Local environment configuration (keep templates versioned)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
