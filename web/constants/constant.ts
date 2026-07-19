@@ -1,3 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/";
+const BASE_URL: string =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/";
 
-export { BASE_URL };
+export { BASE_URL };

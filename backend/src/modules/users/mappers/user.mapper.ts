@@ -10,6 +10,7 @@ export class UserMapper {
             email: user.email ?? undefined,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
+            // avatarUrl: user.avatarUrl,
         };
     }
 }

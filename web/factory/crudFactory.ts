@@ -115,6 +115,7 @@ export class CrudFactory {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
+        "ngrok-skip-browser-warning": "true",
         ...ajaxOptions?.headers,
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
@@ -208,7 +209,10 @@ export class CrudFactory {
         this.buildUrl(this.BASE_URL, "auth/refresh-token"),
         { refreshToken },
         {
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "true",
+          },
           validateStatus: () => true,
         },
       );
