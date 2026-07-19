@@ -17,25 +17,25 @@ export class AuthService {
         private readonly passwordService: PasswordService,
         private readonly jwtService: JwtService,
         private readonly sessionService: SessionService
-    ) {}
+    ) { }
 
     async register(dto: RegisterDto) {
 
         const existingUsername = await this.usersService.findByUsername(dto.username);
-        
+
         if (existingUsername) {
             throw new BadRequestException('Username already exists');
         }
 
         if (dto.email) {
             const existingEmail = await this.usersService.findByEmail(dto.email);
-            
+
             if (existingEmail) {
                 throw new BadRequestException('Email already exists');
             }
         }
 
-        
+
         const passwordHash = await this.passwordService.hash(dto.password);
 
         const user = await this.usersService.createUser({
@@ -46,7 +46,6 @@ export class AuthService {
         });
 
         return {
-            message: 'User registered successfully',
             user: UserMapper.toResponse(user),
         };
     }
@@ -78,54 +77,54 @@ export class AuthService {
     }
 
     async refresh(dto: RefreshTokenDto) {
-    const payload = await this.verifyRefreshToken(
-        dto.refreshToken,
-    );
+        const payload = await this.verifyRefreshToken(
+            dto.refreshToken,
+        );
 
-    const session = await this.sessionService.findSessionById(
-        payload.sid,
-    );
+        const session = await this.sessionService.findSessionById(
+            payload.sid,
+        );
 
-    if (!session) {
-        throw new UnauthorizedException('Invalid session');
-    }
+        if (!session) {
+            throw new UnauthorizedException('Invalid session');
+        }
 
-    const isValid = await this.passwordService.verify(
-        session.refreshTokenHash,
-        dto.refreshToken,
-    );
+        const isValid = await this.passwordService.verify(
+            session.refreshTokenHash,
+            dto.refreshToken,
+        );
 
-    if (!isValid) {
-        throw new UnauthorizedException('Invalid refresh token');
-    }
-
-
-    const user = await this.usersService.findById(payload.sub);
-
-    if (!user) {
-        throw new UnauthorizedException('User not found');
-    }
+        if (!isValid) {
+            throw new UnauthorizedException('Invalid refresh token');
+        }
 
 
-    const accessToken = await this.generateAccessToken(
-        payload.sub,
-        payload.username,
-    );
+        const user = await this.usersService.findById(payload.sub);
 
-    const refreshToken = await this.generateRefreshToken(
-        payload.sub,
-        payload.sid,
-    );
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
 
-    await this.sessionService.rotateRefreshToken(
-        payload.sid,
-        refreshToken,
-    );
 
-    return {
-        accessToken,
-        refreshToken,
-    };
+        const accessToken = await this.generateAccessToken(
+            payload.sub,
+            payload.username,
+        );
+
+        const refreshToken = await this.generateRefreshToken(
+            payload.sub,
+            payload.sid,
+        );
+
+        await this.sessionService.rotateRefreshToken(
+            payload.sid,
+            refreshToken,
+        );
+
+        return {
+            accessToken,
+            refreshToken,
+        };
     }
 
     async login(dto: LoginDto) {
@@ -143,11 +142,11 @@ export class AuthService {
         }
 
         const sessionId = randomUUID();
-        
+
         const accessToken = await this.generateAccessToken(
             user.id,
             user.username,
-        );        
+        );
 
         const refreshToken = await this.generateRefreshToken(
             user.id,
@@ -163,32 +162,26 @@ export class AuthService {
 
 
         return {
-            message: 'Login successful',
             accessToken,
             refreshToken,
             user: UserMapper.toResponse(user),
-            
-        };
+        }
     }
 
-    async logout (dto: RefreshTokenDto) {
+    async logout(dto: RefreshTokenDto) {
         const payload = await this.verifyRefreshToken(
             dto.refreshToken,
         );
 
         await this.sessionService.revokeSession(payload.sid)
 
-        return {
-            message: 'Logged out successfully',
-        };
+        return null
     }
 
     async logoutAll(userId: string) {
         await this.sessionService.revokeAllSessions(userId);
 
-        return {
-            message: 'Logged out from all devices',
-        };
+        return null
     }
 }
 

@@ -5,5 +5,6 @@ export class UserResponseDto {
     email?: string;
     createdAt!: Date;
     updatedAt!: Date; 
-
+    avatarUrl!:string;
+    bio?: string;
 }

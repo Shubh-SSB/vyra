@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,35 +8,104 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
-  displayName  String
-  email        String?  @unique
-  passwordHash String?
-  isEmailVerified Boolean @default(false)
-  isPhoneVerified Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  session      Session[]
+  id                       String                    @id @default(cuid())
+  username                 String                    @unique
+  displayName              String
+  email                    String?                   @unique
+  passwordHash             String?
+  isEmailVerified          Boolean                   @default(false)
+  isPhoneVerified          Boolean                   @default(false)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  session                  Session[]
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
 }
 
 model Session {
-  id               String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   refreshTokenHash String
 
-  deviceName       String?
-  platform         String?
-  ipAddress        String?
-  userAgent        String?
+  deviceName String?
+  platform   String?
+  ipAddress  String?
+  userAgent  String?
 
-  expiresAt        DateTime
+  expiresAt DateTime
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum ParticipantRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+}
+
+model Conversation {
+  id String @id @default(cuid())
+
+  type ConversationType
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+  lastMessageAt  DateTime?
+}
+
+model ConversationParticipant {
+  conversationId String
+  userId         String
+
+  role ParticipantRole @default(MEMBER)
+
+  joinedAt DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id String @id @default(cuid())
+
+  conversationId String
+
+  senderId String
+
+  type MessageType @default(TEXT)
+
+  content String
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  editedAt DateTime?
+
+  deletedAt DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  sender User @relation(fields: [senderId], references: [id], onDelete: Restrict)
 }

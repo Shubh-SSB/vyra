@@ -22,19 +22,57 @@ export class UserRepository {
         return this.prisma.user.findUnique({ where: { email } });
     }
 
+    // async update(
+    //     id: string,
+    //     data: Prisma.UserUpdateInput,
+    // ): Promise<User> {
+    //     return this.prisma.user.update({
+    //         where: { id },
+    //         data,
+    //     });
+    // }
+
     async update(
         id: string,
         data: Prisma.UserUpdateInput,
-    ): Promise<User> {
+        ): Promise<User> {
+
+        const updateData: Prisma.UserUpdateInput = {};
+
+        if (data.displayName !== undefined)
+            updateData.displayName = data.displayName;
+
+        if (data.email !== undefined)
+            updateData.email = data.email;
+
+        // Future
+        if ("bio" in data)
+            (updateData as any).bio = (data as any).bio;
+
+        if ("avatarUrl" in data)
+            (updateData as any).avatarUrl = (data as any).avatarUrl;
+
         return this.prisma.user.update({
             where: { id },
-            data,
+            data: updateData,
         });
     }
 
     async delete(id: string): Promise<User> {
         return this.prisma.user.delete({
             where: { id },
+        });
+    }
+
+    async search(query: string): Promise<User[]> {
+        return this.prisma.user.findMany({
+            where: {
+                OR: [
+                    { username: { contains: query, mode: 'insensitive' } },
+                    { displayName: { contains: query, mode: 'insensitive' } },
+                ],
+            },
+            take: 10,
         });
     }
 }
