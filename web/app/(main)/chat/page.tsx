@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   Pin,
@@ -15,6 +16,7 @@ import Link from "next/link";
 import SearchInput from "@/components/search/search-input";
 import ChatList from "@/components/chat/chat-list";
 import ChatArea from "@/components/chat/chat-area";
+import { ConversationService } from "@/services/conversation.service";
 
 type Conversation = {
   id: string;
@@ -53,7 +55,7 @@ type MobileView = "list" | "chat";
 type SidebarTab = "chats" | "connections";
 
 export default function ChatPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [contextOpen, setContextOpen] = useState(true);
@@ -97,26 +99,16 @@ export default function ChatPage() {
   };
 
   /** Open or create a DM with a Connection, then switch to Chats tab */
-  const handleMessage = (user: Connection) => {
-    // Check if a conversation with this user already exists
-    let conv = conversations.find(
-      (c: any) => c.name === user.name || c.handle === user.username,
-    );
-    if (!conv) {
-      // Create a fresh conversation
-      conv = {
-        id: `dm-${user.id}`,
-        name: user.name,
-        handle: user.username,
-        preview: "Say hi 👋",
-        time: "now",
-        online: user.online,
-        // messages: [],
-      };
-      setConversations((prev: any) => [conv!, ...prev]);
+  const handleMessage = async (user: Connection) => {
+    try {
+      const response = await ConversationService.createDirectConversation(user.id);
+
+      await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setSidebarTab("chats");
+      selectConversation(response.data.id);
+    } catch (error) {
+      console.error("Unable to create the conversation.", error);
     }
-    setSidebarTab("chats");
-    selectConversation(conv.id);
   };
 
   return (

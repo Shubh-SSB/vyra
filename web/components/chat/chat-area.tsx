@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAccessToken } from "@/lib/token";
@@ -12,13 +13,11 @@ import ChatHeader from "./chat-header";
 import ChatThread from "./chat-thread";
 import ChatComposer from "./chat-composer";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Decode JWT payload to get the logged-in user's ID. */
 function getMyUserId(): string | null {
     try {
         const token = getAccessToken();
         if (!token) return null;
+
         const payload = JSON.parse(atob(token.split(".")[1]));
         return payload.sub ?? payload.id ?? payload.userId ?? null;
     } catch {
@@ -26,29 +25,21 @@ function getMyUserId(): string | null {
     }
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
-
 type Props = {
     conversationId: string | null;
     mobileView: string;
     goBackToList: () => void;
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export default function ChatArea({ conversationId, mobileView, goBackToList }: Props) {
     const myUserId = getMyUserId();
-
-    // Local state for messages received via socket (appended to REST history)
-    const [socketMessages, setSocketMessages] = useState<Message[]>([]);
-
-    // 1. Fetch message history via REST
+    const queryClient = useQueryClient();
+    const [socketError, setSocketError] = useState<string | null>(null);
     const { data: historyMessages, isLoading: historyLoading } = useMessages(conversationId);
-
-    // 2. Find the other participant's info from the conversations list (for header)
     const { data: conversations } = useConversations();
-    const conversation = conversations?.find((c) => c.id === conversationId);
-    const otherParticipant = conversation?.participants.find((p) => p.userId !== myUserId);
+
+    const conversation = conversations?.find((item) => item.id === conversationId);
+    const otherParticipant = conversation?.participants.find((participant) => participant.userId !== myUserId);
     const otherUser = otherParticipant
         ? {
               displayName: otherParticipant.user.displayName,
@@ -58,46 +49,28 @@ export default function ChatArea({ conversationId, mobileView, goBackToList }: P
           }
         : null;
 
-    // 3. Socket: join room, listen for messages from OTHER participants only
-    const { sendMessage: socketSend } = useChatSocket({
+    const { connectionStatus, sendMessage: socketSend } = useChatSocket({
         conversationId,
-        onNewMessage: (msg) => {
-            // Skip our own messages — we add them optimistically on send
-            if (msg.senderId === myUserId) return;
-            setSocketMessages((prev) => {
-                if (prev.some((m) => m.id === msg.id)) return prev;
-                if (historyMessages?.some((h) => h.id === msg.id)) return prev;
-                return [...prev, msg];
+        onNewMessage: (message) => {
+            if (!conversationId) return;
+
+            queryClient.setQueryData<Message[]>(["messages", conversationId], (current = []) => {
+                if (current.some((existing) => existing.id === message.id)) return current;
+                return [...current, message];
             });
+
+            queryClient.invalidateQueries({ queryKey: ["conversations"] });
         },
+        onError: setSocketError,
     });
 
-    // Optimistic send: add message to local state immediately, then emit via socket
     const handleSend = (content: string) => {
-        if (!conversationId) return;
+        setSocketError(null);
 
-        // Append optimistically so the sender sees it right away
-        const optimistic: Message = {
-            id: `local-${Date.now()}`,
-            conversationId,
-            senderId: myUserId ?? "me",
-            content,
-            type: "TEXT",
-            createdAt: new Date().toISOString(),
-        };
-        setSocketMessages((prev) => [...prev, optimistic]);
-
-        // Emit to server — server saves and broadcasts to others
-        socketSend(content);
+        if (!socketSend(content)) {
+            setSocketError("Chat is still connecting. Please try again in a moment.");
+        }
     };
-
-    // 4. Merge: history first, then realtime additions
-    const allMessages: Message[] = [
-        ...(historyMessages ?? []),
-        ...socketMessages,
-    ];
-
-    // ── Empty state ───────────────────────────────────────────────────────────
 
     if (!conversationId) {
         return (
@@ -119,30 +92,34 @@ export default function ChatArea({ conversationId, mobileView, goBackToList }: P
         );
     }
 
-    // ── Active conversation ───────────────────────────────────────────────────
-
     return (
         <main className={cn(
             "min-w-0 flex-1 flex-col bg-background",
             "md:flex",
             mobileView === "chat" ? "flex" : "hidden",
         )}>
-            {/* Header */}
             <ChatHeader
                 user={otherUser}
                 onBack={goBackToList}
                 onToggleContext={() => {}}
             />
 
-            {/* Message thread — history + realtime */}
             <ChatThread
-                messages={allMessages}
+                messages={historyMessages ?? []}
                 myUserId={myUserId}
                 isLoading={historyLoading}
             />
 
-            {/* Composer */}
-            <ChatComposer onSend={handleSend} />
+            {(connectionStatus !== "joined" || socketError) && (
+                <p className="px-6 pb-2 text-center text-[11px] text-muted-foreground">
+                    {socketError ?? "Connecting to chat…"}
+                </p>
+            )}
+
+            <ChatComposer
+                onSend={handleSend}
+                disabled={connectionStatus !== "joined"}
+            />
         </main>
     );
 }
