@@ -7,19 +7,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ProfileVisibility {
+  PUBLIC
+  FRIENDS_ONLY
+  PRIVATE
+}
+
+enum MessagePrivacy {
+  EVERYONE
+  FRIENDS_ONLY
+  NOBODY
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model FriendRequest {
+  id         String              @id @default(cuid())
+
+  senderId   String
+  receiverId String
+
+  status     FriendRequestStatus @default(PENDING)
+
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  sender User @relation("FriendRequestSender",fields: [senderId],references: [id],onDelete: Cascade)
+
+  receiver User @relation("FriendRequestReceiver",fields: [receiverId],references: [id],onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+}
+
 model User {
   id                       String                    @id @default(cuid())
+
   username                 String                    @unique
   displayName              String
   email                    String?                   @unique
   passwordHash             String?
+
+  avatarUrl                String?
+  bio                      String?                   @db.VarChar(200)
+
+  profileVisibility        ProfileVisibility         @default(PUBLIC)
+  messagePrivacy           MessagePrivacy           @default(EVERYONE)
+
   isEmailVerified          Boolean                   @default(false)
   isPhoneVerified          Boolean                   @default(false)
+
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
+
   session                  Session[]
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
+
+  sentFriendRequests FriendRequest[] @relation("FriendRequestSender")
+
+  receivedFriendRequests FriendRequest[] @relation("FriendRequestReceiver")
 }
 
 model Session {

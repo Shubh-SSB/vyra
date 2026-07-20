@@ -20,6 +20,8 @@ interface RequestOptions {
   notify?: boolean;
   /** AbortSignal for cancellable requests (e.g. React Query cleanup) */
   signal?: AbortSignal;
+
+  params?: Record<string, string>;
 }
 
 interface SendOptions extends RequestOptions {
@@ -102,7 +104,7 @@ export class CrudFactory {
     sendOptions: SendOptions,
     _isRetry = false,
   ): Promise<ApiResponse<T>> {
-    const { url, data, method, notify = true, signal, ajaxOptions } = sendOptions;
+    const { url, data, method, notify = true, signal, params, ajaxOptions } = sendOptions;
 
     const token = getAccessToken();
 
@@ -111,6 +113,7 @@ export class CrudFactory {
       method,
       url,
       data,
+      params,
       signal,
       headers: {
         "Content-Type": "application/json",

@@ -32,22 +32,28 @@ export class UsersController {
   }
 
   @Get("search")
-  async search(
-    @Query() dto: SearchUserDto,
-  ) {
-    const users = await this.usersService.search(dto.query);
+    async search(
+        @Req() req: RequestWithUser,
+        @Query() dto: SearchUserDto,
+    ) {
 
-    return ApiResponseUtil.success(
-      users,
-      "Users fetched successfully",
-    );
-  }
+        const users =
+            await this.usersService.search(
+                req.user.id,
+                dto.query,
+            );
 
-  @Get(":id")
-  async findById(
-    @Param("id") id: string,
+        return ApiResponseUtil.success(
+            users,
+            "Users fetched successfully",
+        );
+    }
+
+  @Get(":username")
+  async findByUsername(
+    @Param("username") username: string,
   ) {
-    const user = await this.usersService.findPublicById(id);
+    const user = await this.usersService.findPublicByUsername(username);
 
     return ApiResponseUtil.success(
       user,

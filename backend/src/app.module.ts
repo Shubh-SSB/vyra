@@ -8,6 +8,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { MessagesModule } from './modules/messages/message.module';
 import { SocketModule } from './socket/socket.module';
+import { FriendsModule } from './modules/friends/friends.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SocketModule } from './socket/socket.module';
     ConversationsModule,
     MessagesModule,
     SocketModule,
+    FriendsModule,
 ]
 })
 export class AppModule {}

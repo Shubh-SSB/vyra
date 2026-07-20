@@ -28,7 +28,7 @@ export class AuthService {
         }
 
         if (dto.email) {
-            const existingEmail = await this.usersService.findByEmail(dto.email);
+            const existingEmail = await this.usersService.findByUsernameOrEmail(dto.email);
 
             if (existingEmail) {
                 throw new BadRequestException('Email already exists');

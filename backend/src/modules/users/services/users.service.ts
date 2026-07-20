@@ -14,8 +14,8 @@ export class UsersService {
         return this.userRepository.findByUsername(username);
     }
 
-    async findByEmail(email: string) {
-        return this.userRepository.findByEmail(email);
+    async findPublicByUsername(username: string) {
+        return this.userRepository.findPublicByUsername(username);
     }
 
     async createUser(data: CreateUserDto) {
@@ -33,16 +33,23 @@ export class UsersService {
     }
 
     async findById(id: string) {
-        return this.userRepository.findById(id);
+        return this.userRepository.findPublicById(id);
     }
 
     async findPublicById(id: string) {
-        return this.userRepository.findById(id);
+        return this.userRepository.findPublicById(id);
     }
 
-    async search(query: string) {
-        return this.userRepository.search(query);
-    }
+    async search(
+        currentUserId: string,
+        query: string,
+    ) {
+
+        return this.userRepository.search(
+            currentUserId,
+            query.trim(),
+        );
+}
 
     async updateProfile(
         userId: string,
