@@ -1,46 +1,25 @@
-import {
-  Injectable,
-  BadRequestException,
-} from '@nestjs/common';
-import { ConversationRepository } from './repositories/conversation.repository';
+import { Module } from "@nestjs/common";
 
-@Injectable()
-export class ConversationsService {
-  constructor(
-    private readonly conversationRepository: ConversationRepository,
-  ) {}
+import { PrismaModule } from "../../prisma/prisma.module";
 
-  async createDirectConversation(
-    currentUserId: string,
-    targetUserId: string,
-  ) {
+import { ConversationsController } from "./controllers/conversation.controller";
+import { ConversationsService } from "./services/conversation.service";
+import { ConversationRepository } from "./repositories/conversation.repository";
 
-    if (currentUserId === targetUserId) {
-      throw new BadRequestException(
-        "You can't create a conversation with yourself.",
-      );
-    }
-
-    const existingConversation =
-      await this.conversationRepository.findDirectConversation(
-        currentUserId,
-        targetUserId,
-      );
-
-    if (existingConversation && existingConversation.participants.length === 2) {
-      return existingConversation;
-    }
-  }
-
-  async getUserConversations(userId: string) {
-    return this.conversationRepository.findUserConversations(userId);
-  }
-
-  async findById(id: string) {
-    return this.conversationRepository.findById(id);
-  }
-
-  async deleteConversation(id: string) {
-    return this.conversationRepository.delete(id);
-  }
-}
+@Module({
+    imports: [
+        PrismaModule,
+    ],
+    controllers: [
+        ConversationsController,
+    ],
+    providers: [
+        ConversationsService,
+        ConversationRepository,
+    ],
+    exports: [
+        ConversationsService,
+        ConversationRepository,
+    ],
+})
+export class ConversationsModule {}

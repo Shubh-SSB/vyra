@@ -1,10 +1,10 @@
 const ACCESS_TOKEN = 'accessToken';
 const REFRESH_TOKEN = 'refreshToken';
 
-export const getAccessToken = () => 
+export const getAccessToken = () =>
     localStorage.getItem(ACCESS_TOKEN);
 
-export const getRefreshToken = () => 
+export const getRefreshToken = () =>
     localStorage.getItem(REFRESH_TOKEN);
 
 export const setTokens = (
@@ -13,7 +13,7 @@ export const setTokens = (
 ) => {
     localStorage.setItem(ACCESS_TOKEN, accessToken);
     localStorage.setItem(REFRESH_TOKEN, refreshToken);
-}   
+}
 
 export const clearTokens = () => {
     localStorage.removeItem(ACCESS_TOKEN);

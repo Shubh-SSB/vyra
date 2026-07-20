@@ -65,7 +65,7 @@ export class AuthController {
     @UseGuards(JwtAuthGuard)
     @Post('logout-all')
     logoutAll(@Req() req: RequestWithUser) {
-        this.authService.logoutAll(req.user.sub);
+        this.authService.logoutAll(req.user.id);
 
         return ApiResponseUtil.success(
             null,

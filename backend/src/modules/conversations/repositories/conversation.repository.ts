@@ -56,7 +56,17 @@ export class ConversationRepository {
       include: {
         participants: {
           include: {
-            user: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+                email: true,
+                // avatarUrl: true,
+                isEmailVerified: true,
+                isPhoneVerified: true,
+              },
+            }
           },
         },
         messages: {
@@ -100,7 +110,17 @@ export class ConversationRepository {
       include: {
         participants: {
           include: {
-            user: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+                email: true,
+                // avatarUrl: true,
+                isEmailVerified: true,
+                isPhoneVerified: true,
+              },
+            }
           },
         },
       },
@@ -148,6 +168,37 @@ export class ConversationRepository {
                     },
                 },
             });
+        });
+    }
+
+    async isParticipant(
+        conversationId: string,
+        userId: string,
+    ): Promise<boolean> {
+
+        const participant =
+            await this.prisma.conversationParticipant.findUnique({
+                where: {
+                    conversationId_userId: {
+                        conversationId,
+                        userId,
+                    },
+                },
+            });
+
+        return !!participant;
+    }
+
+    async updateLastMessageAt(
+        conversationId: string,
+    ) {
+        return this.prisma.conversation.update({
+            where: {
+                id: conversationId,
+            },
+            data: {
+                lastMessageAt: new Date(),
+            },
         });
     }
 }

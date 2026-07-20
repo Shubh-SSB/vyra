@@ -19,7 +19,7 @@ export class ConversationsController {
     ) {
         const conversation =
             await this.conversationsService.createDirectConversation(
-                req.user.sub,
+                req.user.id,
                 dto.userId,
             );
 
@@ -35,7 +35,7 @@ export class ConversationsController {
     ) {
         const conversations =
             await this.conversationsService.getUserConversations(
-                req.user.sub,
+                req.user.id,
             );
 
         return ApiResponseUtil.success(

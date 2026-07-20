@@ -112,10 +112,14 @@ const CONVERSATIONS: Conversation[] = [
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
+/** Mobile view state: 'list' = contacts sidebar, 'chat' = active conversation */
+type MobileView = "list" | "chat";
+
 export default function ChatPage() {
   const [activeId, setActiveId] = useState(CONVERSATIONS[0].id);
   const [query, setQuery] = useState("");
   const [contextOpen, setContextOpen] = useState(true);
+  const [mobileView, setMobileView] = useState<MobileView>("list");
 
   const filtered = useMemo(() => {
     if (!query) return CONVERSATIONS;
@@ -129,9 +133,15 @@ export default function ChatPage() {
   const pinned = filtered.filter((c) => c.pinned);
   const recent = filtered.filter((c) => !c.pinned);
 
+  /** Select a conversation — on mobile, also switch to chat view */
+  const selectConversation = (id: string) => {
+    setActiveId(id);
+    setMobileView("chat");
+  };
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
-      {/* Rail */}
+      {/* Rail — desktop only */}
       <aside className="hidden w-[60px] shrink-0 flex-col items-center justify-between border-r border-border bg-surface-secondary py-5 md:flex">
         <div className="flex flex-col items-center gap-6">
           <Link href="/">
@@ -147,8 +157,18 @@ export default function ChatPage() {
         </div>
       </aside>
 
-      {/* Conversation list */}
-      <aside className="hidden w-[320px] shrink-0 flex-col border-r border-border bg-surface-secondary md:flex">
+      {/* ── Conversation list ─────────────────────────────────────── */}
+      {/* Desktop: always visible as sidebar. Mobile: full-screen when mobileView='list' */}
+      <aside
+        className={cn(
+          // Desktop — always a 320px sidebar
+          "md:flex md:w-[320px] md:shrink-0 md:flex-col md:border-r md:border-border md:bg-surface-secondary",
+          // Mobile — full-width or hidden depending on mobileView
+          mobileView === "list"
+            ? "flex w-full flex-col bg-surface-secondary md:w-[320px]"
+            : "hidden",
+        )}
+      >
         <div className="px-5 pt-6">
           <div className="mb-5 flex items-center justify-between">
             <h1 className="font-display text-[22px] font-semibold tracking-tight">Inbox</h1>
@@ -167,7 +187,7 @@ export default function ChatPage() {
               placeholder="Search"
               className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-16 text-[13px] font-medium text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
             />
-            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border bg-surface-elevated px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border bg-surface-elevated px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground md:inline hidden">
               ⌘K
             </span>
           </div>
@@ -181,7 +201,7 @@ export default function ChatPage() {
                   key={c.id}
                   c={c}
                   active={c.id === activeId}
-                  onClick={() => setActiveId(c.id)}
+                  onClick={() => selectConversation(c.id)}
                 />
               ))}
             </ListSection>
@@ -192,22 +212,47 @@ export default function ChatPage() {
                 key={c.id}
                 c={c}
                 active={c.id === activeId}
-                onClick={() => setActiveId(c.id)}
+                onClick={() => selectConversation(c.id)}
               />
             ))}
           </ListSection>
         </div>
       </aside>
 
-      {/* Chat */}
-      <main className="flex min-w-0 flex-1 flex-col">
+      {/* ── Chat area ─────────────────────────────────────────────── */}
+      {/* Desktop: always visible. Mobile: only when mobileView='chat' */}
+      <main
+        className={cn(
+          "min-w-0 flex-1 flex-col",
+          // Desktop: always flex
+          "md:flex",
+          // Mobile: flex only when chat is active
+          mobileView === "chat" ? "flex" : "hidden",
+        )}
+      >
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border px-6">
+          {/* Mobile header — back arrow goes to contact list, not landing */}
           <div className="flex items-center gap-3 md:hidden">
-            <Link href="/" className="text-muted-foreground">
+            <button
+              onClick={() => setMobileView("list")}
+              className="text-muted-foreground"
+            >
               <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
-            </Link>
-            <VyraWordmark />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <div className="h-7 w-7 rounded-full bg-surface-elevated ring-1 ring-border" />
+                {active.online && (
+                  <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-success ring-2 ring-background" />
+                )}
+              </div>
+              <div>
+                <p className="text-[14px] font-semibold leading-tight">{active.name}</p>
+                <p className="text-[11px] text-muted-foreground">{active.handle}</p>
+              </div>
+            </div>
           </div>
+          {/* Desktop header */}
           <div className="hidden items-center gap-3 md:flex">
             <div className="relative">
               <div className="h-9 w-9 rounded-full bg-surface-elevated ring-1 ring-border" />
@@ -240,7 +285,7 @@ export default function ChatPage() {
         <Composer />
       </main>
 
-      {/* Context panel */}
+      {/* Context panel — desktop only */}
       <AnimatePresence initial={false}>
         {contextOpen && (
           <motion.aside

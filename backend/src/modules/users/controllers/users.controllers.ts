@@ -61,7 +61,7 @@ export class UsersController {
     @Body() dto: UpdateProfileDto,
   ) {
     const user = await this.usersService.updateProfile(
-      req.user.sub,
+      req.user.id,
       dto,
     );
 
