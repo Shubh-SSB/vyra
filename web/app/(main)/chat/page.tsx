@@ -1,6 +1,6 @@
 'use client';
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Pin,
@@ -120,6 +120,23 @@ export default function ChatPage() {
   const [query, setQuery] = useState("");
   const [contextOpen, setContextOpen] = useState(true);
   const [mobileView, setMobileView] = useState<MobileView>("list");
+  // Track whether we pushed a history entry for the chat view
+  const chatHistoryPushed = useRef(false);
+
+  // Intercept browser back gesture: when in chat view, go to list instead
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      if (e.state?.mobileChat === true) {
+        // User swiped/pressed back while in chat — go to list
+        setMobileView("list");
+        chatHistoryPushed.current = false;
+        // Push the list state back so further back navigations work correctly
+        window.history.pushState({ mobileChat: false }, "");
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const filtered = useMemo(() => {
     if (!query) return CONVERSATIONS;
@@ -133,10 +150,22 @@ export default function ChatPage() {
   const pinned = filtered.filter((c) => c.pinned);
   const recent = filtered.filter((c) => !c.pinned);
 
-  /** Select a conversation — on mobile, also switch to chat view */
+  /** Select a conversation — on mobile, push a history entry and switch to chat view */
   const selectConversation = (id: string) => {
     setActiveId(id);
     setMobileView("chat");
+    // Push a history entry so swipe-back hits this state and we can intercept it
+    window.history.pushState({ mobileChat: true }, "");
+    chatHistoryPushed.current = true;
+  };
+
+  /** Go back to contacts list — also pop the history entry we pushed */
+  const goBackToList = () => {
+    setMobileView("list");
+    if (chatHistoryPushed.current) {
+      window.history.back();
+      chatHistoryPushed.current = false;
+    }
   };
 
   return (
@@ -234,7 +263,7 @@ export default function ChatPage() {
           {/* Mobile header — back arrow goes to contact list, not landing */}
           <div className="flex items-center gap-3 md:hidden">
             <button
-              onClick={() => setMobileView("list")}
+              onClick={goBackToList}
               className="text-muted-foreground"
             >
               <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />

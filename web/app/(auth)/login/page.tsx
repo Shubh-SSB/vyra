@@ -41,7 +41,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       await loginMutation.mutateAsync(data);
-      router.push("/chat");
+      router.replace("/chat");
     } catch (err: any) {
       const message = err?.message || "Login failed. Please try again.";
       setError("root", { message });
