@@ -52,11 +52,13 @@ function ConversationRow({
     myId,
     active,
     onClick,
+    isTyping,
 }: {
     conv: ConversationPreview;
     myId: string | null;
     active?: boolean;
     onClick?: () => void;
+    isTyping?: boolean;
 }) {
     const otherUser = getOtherUser(conv, myId);
     if (!otherUser) return null;
@@ -75,10 +77,31 @@ function ConversationRow({
         <button
             onClick={onClick}
             className={cn(
-                "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-                active ? "bg-surface" : "hover:bg-surface/60"
+                "group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-4 py-3 text-left transition-all duration-200 my-0.5",
+                active
+                    ? "ring-1 ring-border shadow-md"
+                    : "hover:bg-surface/50"
             )}
         >
+            {/* Background Image & Overlay */}
+            <div className="absolute inset-0 pointer-events-none">
+                <Image
+                    src="/bg1.jpeg"
+                    alt="Tile background"
+                    fill
+                    className={cn(
+                        "object-cover transition-transform duration-300 group-hover:scale-105",
+                        active ? "opacity-75" : "opacity-50 group-hover:opacity-70"
+                    )}
+                />
+                <div
+                    className={cn(
+                        "absolute inset-0 bg-gradient-to-r from-background/85 via-background/50 to-transparent",
+                        active ? "from-background/75 via-background/40 to-transparent" : ""
+                    )}
+                />
+            </div>
+
             {/* Avatar */}
             <div className="relative shrink-0">
                 {otherUser.avatarUrl ? (
@@ -100,7 +123,7 @@ function ConversationRow({
             </div>
 
             {/* Content */}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 z-10">
                 <div className="flex items-baseline justify-between gap-2">
                     <p className="truncate text-[13px] font-semibold text-foreground">
                         {otherUser.displayName.trim()}
@@ -110,8 +133,12 @@ function ConversationRow({
                     )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-[12px] text-muted-foreground">
-                        {preview || <span className="italic">No messages yet</span>}
+                    <p className="truncate text-[12px] text-muted-foreground flex-1">
+                        {isTyping ? (
+                            <span className="text-emerald-500 font-medium animate-pulse">typing...</span>
+                        ) : (
+                            preview || <span className="italic">No messages yet</span>
+                        )}
                     </p>
                     {unread > 0 && (
                         <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-bold text-background leading-none shrink-0">
@@ -129,9 +156,11 @@ function ConversationRow({
 export default function ChatList({
     activeId,
     onSelect,
+    typingConversations,
 }: {
     activeId?: string;
     onSelect?: (conv: ConversationPreview) => void;
+    typingConversations?: Record<string, boolean>;
 }) {
     const { data, isLoading } = useConversations();
     const myId = getMyUserId();
@@ -169,7 +198,7 @@ export default function ChatList({
     }
 
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-1">
             {data.map((conv) => (
                 <ConversationRow
                     key={conv.id}
@@ -177,6 +206,7 @@ export default function ChatList({
                     myId={myId}
                     active={conv.id === activeId}
                     onClick={() => onSelect?.(conv)}
+                    isTyping={typingConversations?.[conv.id] ?? false}
                 />
             ))}
         </div>

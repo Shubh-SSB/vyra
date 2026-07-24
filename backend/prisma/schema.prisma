@@ -19,6 +19,12 @@ enum MessagePrivacy {
   NOBODY
 }
 
+enum PresenceVisibility {
+  EVERYONE
+  FRIENDS_ONLY
+  NOBODY
+}
+
 enum FriendRequestStatus {
   PENDING
   ACCEPTED
@@ -54,8 +60,13 @@ model User {
   avatarUrl                String?
   bio                      String?                   @db.VarChar(200)
 
-  profileVisibility        ProfileVisibility         @default(PUBLIC)
-  messagePrivacy           MessagePrivacy           @default(EVERYONE)
+  profileVisibility  ProfileVisibility  @default(PUBLIC)
+  messagePrivacy     MessagePrivacy      @default(EVERYONE)
+  presenceVisibility PresenceVisibility  @default(FRIENDS_ONLY)
+
+  showLastSeen       Boolean @default(true)
+  showReadReceipts   Boolean @default(true)
+  lastSeen           DateTime?
 
   isEmailVerified          Boolean                   @default(false)
   isPhoneVerified          Boolean                   @default(false)

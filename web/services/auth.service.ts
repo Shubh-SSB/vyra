@@ -1,6 +1,6 @@
 import { $crud } from "@/factory/crudFactory";
 import { getRefreshToken, setTokens } from "@/lib/token";
-import { LoginPayload, LoginResponse, RegisterPayload } from "@/types/auth";
+import { LoginPayload, LoginResponse, MeResponse, RegisterPayload } from "@/types/auth";
 
 class AuthService {
   async login(data: LoginPayload) {
@@ -15,7 +15,7 @@ class AuthService {
   }
 
   async me() {
-    return $crud.get("auth/me");
+    return $crud.get<MeResponse>("auth/me");
   }
 
   async logout() {

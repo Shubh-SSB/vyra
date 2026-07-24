@@ -14,3 +14,12 @@ export type UserProfile = {
     profileVisibility?: string;
     messagePrivacy?: string;
 }
+
+
+export type AvatarProps = {
+    compact?: boolean;
+    user?: {
+        displayName?: string;
+        avatarUrl?: string | null;
+    } | null;
+};

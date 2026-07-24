@@ -1,6 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Geist, Inter } from 'next/font/google'
 import './globals.css'
 import QueryProvider from '@/providers/query-provider'
 import { AuthInitializer } from '@/providers/auth-initializer'
@@ -10,25 +10,23 @@ const inter = Inter({
   variable: '--font-sans',
 })
 
+const geist = Geist({
+  subsets: ['latin'],
+  variable: '--font-geist',
+})
+
 export const metadata: Metadata = {
   title: 'Vyra',
   description: 'AI-first communication platform. Conversations are temporary. Knowledge is permanent.',
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
+        url: '/favicon.jpg',
+        type: 'image/jpeg',
       },
     ],
-    apple: '/apple-icon.png',
+    shortcut: '/favicon.jpg',
+    apple: '/favicon.jpg',
   },
 }
 
@@ -47,7 +45,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} antialiased bg-background text-text-primary`}>
+      <body className={`${inter.variable} ${geist.variable} antialiased bg-background text-text-primary`}>
         <QueryProvider>
           <AuthInitializer>
             {children}

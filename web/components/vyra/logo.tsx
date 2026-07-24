@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 export function VyraMark({ className }: { className?: string }) {
     return (
@@ -28,6 +29,31 @@ export function VyraWordmark({ className }: { className?: string }) {
             <span className="font-display text-[19px] font-semibold tracking-tight text-foreground">
                 Vyra
             </span>
+        </div>
+    );
+}
+
+
+export interface VyraIconProps extends React.HTMLAttributes<HTMLDivElement> {
+    size?: number;
+    width?: number;
+    height?: number;
+    className?: string;
+    imageClassName?: string;
+}
+
+export function VyraIcon({ size, width, height, className, imageClassName, ...props }: VyraIconProps) {
+    const w = size ?? width ?? 120;
+    const h = size ?? height ?? 120;
+    return (
+        <div className={cn("relative flex items-center justify-center", className)} {...props}>
+            <Image
+                src="/logo-trans.png"
+                alt="vyra-logo"
+                width={w}
+                height={h}
+                className={cn(imageClassName)}
+            />
         </div>
     );
 }

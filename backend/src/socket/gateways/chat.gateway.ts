@@ -14,6 +14,7 @@ import { SocketStateService } from "../services/socket-state.service";
 import { ConversationRepository } from "../../modules/conversations/repositories/conversation.repository";
 import { SendMessageDto } from "src/modules/messages/dto/send-message.dto";
 import { MessagesService } from "src/modules/messages/services/message.service";
+import type { TypingPayload } from "../interfaces/typing.interface";
 
 @WebSocketGateway({
     cors: {
@@ -29,8 +30,8 @@ export class ChatGateway
         private readonly socketStateService: SocketStateService,
         private readonly conversationRepository: ConversationRepository,
         private readonly messageService: MessagesService,
+        
     ) {}
-
     
     @WebSocketServer()
     // @ts-ignore
@@ -122,11 +123,82 @@ export class ChatGateway
             body.content,
         ); 
 
-        this.server.to(body.conversationId).emit("newMessage", {message , conversationId: body.conversationId});
+        this.server.to(body.conversationId).emit("newMessage", {
+            conversationId: body.conversationId,
+            message 
+        });
     } catch (error: any) {
         client.emit("error", {
             message: error.message,
         })
     }
   }
+
+  @SubscribeMessage("typingStart")
+    async typingStart(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() body: TypingPayload,
+    ) {
+        const user = client.data.user;
+
+        const conversationId = body.conversationId;
+
+        const isParticipant = await this.conversationRepository.isParticipant(
+            body.conversationId,
+            user.id,
+        )
+
+        if (!isParticipant) {
+            client.emit("error", {
+                message: "You are not a participant of this conversation",
+            })
+        
+            return
+
+        }
+
+        this.server.to(body.conversationId).emit("userTyping", {
+            conversationId: body.conversationId,
+            userId: user.id,
+        })
+    }
+
+    @SubscribeMessage("typingStop")
+    async typingStop(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() body: TypingPayload,
+    ) {
+        const user = client.data.user;
+
+        const isParticipant =
+            await this.conversationRepository.isParticipant(
+                body.conversationId,
+                user.id,
+            );
+
+        if (!isParticipant) {
+            client.emit("error", {
+                message: "You are not a participant of this conversation",
+            });
+
+            return;
+        }
+
+        this.server.to(body.conversationId).emit("userStoppedTyping", {
+            conversationId: body.conversationId,
+            userId: user.id,
+        });
+    }
+
+    @SubscribeMessage("leaveConversation")
+    async leaveConversation(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() body: TypingPayload,
+    ) {
+        await client.leave(body.conversationId);
+
+        client.emit("leftConversation", {
+            conversationId: body.conversationId,
+        });
+    }
 }

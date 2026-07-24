@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 
 import { PrismaModule } from "src/prisma/prisma.module";
 import { UsersModule } from "../users/users.module";
@@ -10,7 +10,7 @@ import { FriendRepository } from "./repositories/friend.repository";
 @Module({
     imports: [
         PrismaModule,
-        UsersModule,
+        forwardRef(() => UsersModule),
     ],
 
     controllers: [

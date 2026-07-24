@@ -4,33 +4,36 @@ import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { getAccessToken } from "@/lib/token";
 import { BASE_URL } from "@/constants/constant";
-import { Message } from "@/types/message";
-
-type NewMessagePayload = {
-    conversationId: string;
-    message: Message;
-};
-
-type UseChatSocketOptions = {
-    conversationId: string | null;
-    onNewMessage: (message: Message) => void;
-    onError?: (message: string) => void;
-};
+import { NewMessagePayload, TypingPayload, UseChatSocketOptions } from "@/types/socket.types";
 
 type ConnectionStatus = "connecting" | "joined" | "disconnected";
 
-export function useChatSocket({ conversationId, onNewMessage, onError }: UseChatSocketOptions) {
+export function useChatSocket({
+    conversationId,
+    conversationIds,
+    onNewMessage,
+    onTypingStart,
+    onTypingStop,
+    onError,
+}: UseChatSocketOptions) {
     const socketRef = useRef<Socket | null>(null);
     const onNewMessageRef = useRef(onNewMessage);
+    const onTypingStartRef = useRef(onTypingStart);
+    const onTypingStopRef = useRef(onTypingStop);
     const onErrorRef = useRef(onError);
-    const joinedConversationRef = useRef<string | null>(null);
+    const joinedConversationsRef = useRef<string[]>([]);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
 
     onNewMessageRef.current = onNewMessage;
+    onTypingStartRef.current = onTypingStart;
+    onTypingStopRef.current = onTypingStop;
     onErrorRef.current = onError;
 
+    const conversationIdsJson = JSON.stringify(conversationIds);
+
     useEffect(() => {
-        if (!conversationId) {
+        const hasConversations = conversationId || (conversationIds && conversationIds.length > 0);
+        if (!hasConversations) {
             setConnectionStatus("disconnected");
             return;
         }
@@ -43,31 +46,37 @@ export function useChatSocket({ conversationId, onNewMessage, onError }: UseChat
         }
 
         const socket = io(BASE_URL, {
-            // The Nest gateway reads this value from client.handshake.query.token.
             query: { token },
             transports: ["websocket"],
             autoConnect: true,
         });
 
         socketRef.current = socket;
-        joinedConversationRef.current = null;
+        joinedConversationsRef.current = [];
         setConnectionStatus("connecting");
 
-        const joinConversation = () => {
-            socket.emit("joinConversation", { conversationId });
+        const joinConversations = () => {
+            if (conversationId) {
+                socket.emit("joinConversation", { conversationId });
+            }
+            if (conversationIds) {
+                conversationIds.forEach((id) => {
+                    socket.emit("joinConversation", { conversationId: id });
+                });
+            }
         };
 
         const handleJoinedConversation = (payload: { conversationId?: string }) => {
-            if (payload.conversationId !== conversationId) return;
-
-            joinedConversationRef.current = conversationId;
+            if (!payload.conversationId) return;
+            if (!joinedConversationsRef.current.includes(payload.conversationId)) {
+                joinedConversationsRef.current.push(payload.conversationId);
+            }
             setConnectionStatus("joined");
         };
 
         const handleNewMessage = (payload: NewMessagePayload) => {
-            if (payload.conversationId !== conversationId || !payload.message) return;
-
-            onNewMessageRef.current(payload.message);
+            if (!payload.message) return;
+            onNewMessageRef.current(payload.message, payload.conversationId);
         };
 
         const handleSocketError = (error: unknown) => {
@@ -81,48 +90,77 @@ export function useChatSocket({ conversationId, onNewMessage, onError }: UseChat
             onErrorRef.current?.(message);
         };
 
-        const handleConnectError = () => {
+        const handleConnectError = (err: any) => {
             setConnectionStatus("disconnected");
             onErrorRef.current?.("Unable to connect to chat. Please try again.");
         };
 
         const handleDisconnect = () => {
-            joinedConversationRef.current = null;
+            joinedConversationsRef.current = [];
             setConnectionStatus("disconnected");
         };
 
-        socket.on("connect", joinConversation);
+        const handleTypingStart = (payload: TypingPayload) => {
+            onTypingStartRef.current?.(payload);
+        };
+
+        const handleTypingStop = (payload: TypingPayload) => {
+            onTypingStopRef.current?.(payload);
+        };
+
+        if (socket.connected) {
+            joinConversations();
+        }
+        socket.on("connect", joinConversations);
         socket.on("joinedConversation", handleJoinedConversation);
         socket.on("newMessage", handleNewMessage);
         socket.on("error", handleSocketError);
         socket.on("connect_error", handleConnectError);
         socket.on("disconnect", handleDisconnect);
+        socket.on("userTyping", handleTypingStart);
+        socket.on("userStoppedTyping", handleTypingStop);
 
         return () => {
-            joinedConversationRef.current = null;
-            socket.off("connect", joinConversation);
+            joinedConversationsRef.current = [];
+            socket.off("connect", joinConversations);
             socket.off("joinedConversation", handleJoinedConversation);
             socket.off("newMessage", handleNewMessage);
             socket.off("error", handleSocketError);
             socket.off("connect_error", handleConnectError);
             socket.off("disconnect", handleDisconnect);
+            socket.off("userTyping", handleTypingStart);
+            socket.off("userStoppedTyping", handleTypingStop);
             socket.disconnect();
             socketRef.current = null;
         };
-    }, [conversationId]);
+    }, [conversationId, conversationIdsJson]);
 
-    const sendMessage = (content: string): boolean => {
-        if (
-            !socketRef.current?.connected ||
-            !conversationId ||
-            joinedConversationRef.current !== conversationId
-        ) {
+    const sendMessage = (content: string, convId?: string | null): boolean => {
+        const id = convId ?? conversationId;
+        if (!socketRef.current?.connected || !id) {
             return false;
         }
 
-        socketRef.current.emit("sendMessage", { conversationId, content });
+        socketRef.current.emit("sendMessage", { conversationId: id, content });
         return true;
     };
 
-    return { connectionStatus, sendMessage };
+    const sendTypingStart = (convId?: string | null) => {
+        const id = convId ?? conversationId;
+        if (!socketRef.current?.connected || !id) return;
+        socketRef.current.emit("typingStart", { conversationId: id });
+    };
+
+    const sendTypingStop = (convId?: string | null) => {
+        const id = convId ?? conversationId;
+        if (!socketRef.current?.connected || !id) return;
+        socketRef.current.emit("typingStop", { conversationId: id });
+    };
+
+    return {
+        connectionStatus,
+        sendMessage,
+        sendTypingStart,
+        sendTypingStop,
+    };
 }

@@ -32,4 +32,13 @@ export interface RefreshResponse {
 export interface MeResponse {
   id: string;
   username: string;
+  displayName: string;
+  email?: string;
+  avatarUrl?: string | null;
+  bio?: string;
+  profileVisibility?: string;
+  messagePrivacy?: string;
+  presenceVisibility?: string;
+  showLastSeen?: boolean;
+  showReadReceipts?: boolean;
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
@@ -6,11 +6,14 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import type { RequestWithUser } from '../../../common/interfaces/request-with-user.interface';
 import { ApiResponseUtil } from 'src/common/utils/api-response';
+import { UsersService } from '../../users/services/users.service';
+import { UserMapper } from '../../users/mappers/user.mapper';
 
 @Controller('auth')
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
+        private readonly usersService: UsersService,
     ) { }
 
     @Post('register')
@@ -35,9 +38,13 @@ export class AuthController {
 
     @Get('me')
     @UseGuards(JwtAuthGuard)
-    getMe(@Req() req: any) {
+    async getMe(@Req() req: any) {
+        const user = await this.usersService.findById(req.user.id);
+        if (!user) {
+            throw new NotFoundException("User not found");
+        }
         return ApiResponseUtil.success(
-            req.user,
+            UserMapper.toResponse(user),
             "User fetched successfully",
         );
     }

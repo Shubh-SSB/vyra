@@ -22,5 +22,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   // While initializing (store hydrating), don't flash the auth page
   if (isInitializing && isAuthenticated) return null;
 
-  return <>{children}</>;
+  return <>
+
+    {children}
+  </>;
 }

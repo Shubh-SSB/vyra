@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
 
@@ -10,7 +10,6 @@ export class UserRepository {
         return this.prisma.user.create({ data });
     }
 
-    // ─── Public profile by ID (for profile pages / other users viewing) ───────
     async findPublicById(id: string) {
         return this.prisma.user.findUnique({
             where: { id },
@@ -26,23 +25,18 @@ export class UserRepository {
         });
     }
 
-    // ─── Full user by username (for auth — returns passwordHash) ──────────────
-    async findByUsername(username: string): Promise<User | null> {
-        return this.prisma.user.findUnique({ where: { username } });
+    async findById(id: string): Promise<User | null> {
+        return this.prisma.user.findUnique({
+            where: { id },
+        });
     }
 
-    // ─── Public profile by username (for profile pages — no passwordHash) ─────
-    async findPublicByUsername(username: string) {
+    async findByUsername(
+        username: string,
+    ): Promise<User | null> {
         return this.prisma.user.findUnique({
-            where: { username },
-            select: {
-                id: true,
-                username: true,
-                displayName: true,
-                avatarUrl: true,
-                bio: true,
-                profileVisibility: true,
-                messagePrivacy: true,
+            where: {
+                username,
             },
         });
     }
@@ -51,29 +45,13 @@ export class UserRepository {
         return this.prisma.user.findUnique({ where: { email } });
     }
 
-    // ─── Update (type-safe, no `as any`) ─────────────────────────────────────
     async update(
         id: string,
         data: Prisma.UserUpdateInput,
     ): Promise<User> {
-        const updateData: Prisma.UserUpdateInput = {
-            ...(data.displayName !== undefined && {
-                displayName: data.displayName,
-            }),
-            ...(data.email !== undefined && {
-                email: data.email,
-            }),
-            ...(data.bio !== undefined && {
-                bio: data.bio,
-            }),
-            ...(data.avatarUrl !== undefined && {
-                avatarUrl: data.avatarUrl,
-            }),
-        };
-
         return this.prisma.user.update({
             where: { id },
-            data: updateData,
+            data,
         });
     }
 
@@ -120,4 +98,28 @@ export class UserRepository {
             },
         });
     }
+
+
+    async findByIdOrThrow(id: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!user) {
+            throw new NotFoundException("User not found");
+        }
+
+        return this.prisma.user.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                username: true,
+                displayName: true,
+                avatarUrl: true,
+                bio: true,
+                profileVisibility: true,
+                messagePrivacy: true,
+            },
+        });
+        }
 }

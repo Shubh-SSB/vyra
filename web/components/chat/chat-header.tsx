@@ -16,6 +16,7 @@ type Props = {
     user: ChatHeaderUser | null;
     onBack: () => void;
     onToggleContext: () => void;
+    isTyping?: boolean;
 };
 
 function Avatar({ user, size }: { user: ChatHeaderUser | null; size: "sm" | "md" }) {
@@ -53,7 +54,7 @@ function Avatar({ user, size }: { user: ChatHeaderUser | null; size: "sm" | "md"
     );
 }
 
-export default function ChatHeader({ user, onBack, onToggleContext }: Props) {
+export default function ChatHeader({ user, onBack, onToggleContext, isTyping }: Props) {
     return (
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background px-6">
             {/* Mobile */}
@@ -61,11 +62,16 @@ export default function ChatHeader({ user, onBack, onToggleContext }: Props) {
                 <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">
                     <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
                 </button>
-                <div className="flex items-center gap-2">
+                <div 
+                    onClick={onToggleContext}
+                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition select-none"
+                >
                     <Avatar user={user} size="sm" />
                     <div>
                         <p className="text-[14px] font-semibold leading-tight">{user?.displayName ?? "…"}</p>
-                        {user?.username && (
+                        {isTyping ? (
+                            <p className="text-[11px] text-emerald-500 font-medium animate-pulse">typing...</p>
+                        ) : user?.username && (
                             <p className="text-[11px] text-muted-foreground">@{user.username}</p>
                         )}
                     </div>
@@ -73,13 +79,18 @@ export default function ChatHeader({ user, onBack, onToggleContext }: Props) {
             </div>
 
             {/* Desktop */}
-            <div className="hidden items-center gap-3 md:flex">
+            <div 
+                onClick={onToggleContext}
+                className="hidden items-center gap-3 md:flex cursor-pointer hover:opacity-80 transition select-none"
+            >
                 <Avatar user={user} size="md" />
                 <div>
                     <p className="font-display text-[15px] font-semibold tracking-tight leading-tight">
                         {user?.displayName ?? "…"}
                     </p>
-                    {user?.username && (
+                    {isTyping ? (
+                        <p className="text-[12px] text-emerald-500 font-medium animate-pulse">typing...</p>
+                    ) : user?.username && (
                         <p className="text-[12px] text-muted-foreground">@{user.username}</p>
                     )}
                 </div>

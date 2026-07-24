@@ -1,20 +1,44 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Paperclip, Send, Sparkles } from "lucide-react";
 
 type Props = {
     onSend: (content: string) => void;
     disabled?: boolean;
+    onTypingStart?: () => void;
+    onTypingStop?: () => void;
 };
 
-export default function ChatComposer({ onSend, disabled }: Props) {
+export default function ChatComposer({ onSend, disabled, onTypingStart, onTypingStop }: Props) {
     const [value, setValue] = useState("");
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const isTypingRef = useRef(false);
+
+    // Clean up timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (typingTimeoutRef.current) {
+                clearTimeout(typingTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const submit = () => {
         const trimmed = value.trim();
         if (!trimmed || disabled) return;
+
+        // Immediately stop typing state
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = null;
+        }
+        if (isTypingRef.current) {
+            isTypingRef.current = false;
+            onTypingStop?.();
+        }
+
         onSend(trimmed);
         setValue("");
         // Reset textarea height
@@ -31,11 +55,25 @@ export default function ChatComposer({ onSend, disabled }: Props) {
         }
     };
 
-    // Auto-grow textarea
+    // Auto-grow textarea & handle typing state
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setValue(e.target.value);
         e.target.style.height = "auto";
         e.target.style.height = `${e.target.scrollHeight}px`;
+
+        if (!isTypingRef.current && e.target.value.trim().length > 0) {
+            isTypingRef.current = true;
+            onTypingStart?.();
+        }
+
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+
+        typingTimeoutRef.current = setTimeout(() => {
+            isTypingRef.current = false;
+            onTypingStop?.();
+        }, 2000);
     };
 
     return (
