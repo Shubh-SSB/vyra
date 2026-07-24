@@ -8,7 +8,7 @@ export const UserService = {
     },
 
     getProfile(username: string) {
-        return $crud.get<UserProfile>(`users/${username}`);
+        return $crud.get<UserProfile>(`users/profile/${username}`);
     },
 
     updateProfile(data: { displayName?: string; bio?: string; avatarUrl?: string; email?: string }) {

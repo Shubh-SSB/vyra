@@ -233,9 +233,19 @@ export default function ChatPage() {
             <div className="px-5 pt-4">
               <div className="mb-4 flex items-center justify-between">
                 <h1 className="font-display text-[20px] font-semibold tracking-tight">Inbox</h1>
-                <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground">
-                  <Plus className="h-4 w-4" strokeWidth={1.75} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground">
+                    <Plus className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
+                  <Link
+                    href="/settings"
+                    title="Settings"
+                    aria-label="Settings"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground md:hidden"
+                  >
+                    <Settings className="h-4 w-4" strokeWidth={1.75} />
+                  </Link>
+                </div>
               </div>
               <div className="relative">
                 <Search
