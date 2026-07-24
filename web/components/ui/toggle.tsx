@@ -1,19 +1,18 @@
-import React from 'react';
 import styled from 'styled-components';
 
 export default function Toggle({ checked, onChange }: { checked?: boolean; onChange?: (checked: boolean) => void }) {
-    return (
-        <StyledWrapper>
-            <label className="switch">
-                <input 
-                    type="checkbox" 
-                    checked={checked} 
-                    onChange={(e) => onChange?.(e.target.checked)} 
-                />
-                <span className="slider" />
-            </label>
-        </StyledWrapper>
-    );
+  return (
+    <StyledWrapper>
+      <label className="switch">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange?.(e.target.checked)}
+        />
+        <span className="slider" />
+      </label>
+    </StyledWrapper>
+  );
 }
 
 const StyledWrapper = styled.div`
