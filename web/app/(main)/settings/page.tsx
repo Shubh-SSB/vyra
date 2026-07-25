@@ -25,6 +25,7 @@ import {
   UsersRound,
   QrCode,
   Clock,
+  Volume2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Avatar from "@/components/ui/avatar";
@@ -34,6 +35,7 @@ import { useUpdatePrivacy } from "@/tanstack/queries/user.query";
 import { enqueueSnackbar } from "notistack";
 import Image from "next/image";
 import SettingsToggle from "@/components/ui/settings-toggle";
+import SettingSidebar from "@/components/ui/settings-sidebar";
 
 type SectionId = "account" | "security" | "preferences" | "privacy";
 
@@ -50,7 +52,18 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SectionId>("account");
   const [autofill, setAutofill] = useState(true);
   const [messagePreview, setMessagePreview] = useState(true);
+  const [chatSounds, setChatSounds] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("chatSounds") !== "false";
+    }
+    return true;
+  });
   const [notice, setNotice] = useState("");
+
+  const handleChatSoundsChange = (checked: boolean) => {
+    setChatSounds(checked);
+    localStorage.setItem("chatSounds", String(checked));
+  };
 
   const selectSection = (section: SectionId) => {
     setActiveSection(section);
@@ -80,43 +93,10 @@ export default function SettingsPage() {
 
 
       <div className="relative z-10 mx-auto flex w-full">
-        {/* Desktop Sidebar aside */}
-        <aside className="sticky top-0 hidden h-svh w-[320px] rounded-tr-2xl shrink-0 flex-col border-r border-white/5 px-5 py-6 lg:flex">
-          {/* <Image
-            src="/bg1.jpeg"
-            alt="Tile background"
-            fill
-            className={cn(
-              "object-cover transition-transform duration-300 group-hover:scale-105 -z-10 opacity-30 rounded-tr-2xl"
-            )}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40" /> */}
-          <Link href="/chat" className="mb-9 flex items-center justify-center hover:text-white/55 bg-white/5 p-3 backdrop-blur-md rounded-2xl gap-3">
-            <ArrowLeft />
-            <span className="text-md tracking-tight">Back to Conversations</span>
-          </Link>
-          <div className="mb-8 hidden items-center justify-between gap-5 md:flex">
-            <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/60">Personal space</p>
-              <h1 className="font-display text-[30px] font-semibold tracking-[-0.045em] sm:text-[34px]">Settings</h1>
-            </div>
-            <button
-              type="button"
-              onClick={() => showNotice("Upgrade to Premium")}
-              className="flex items-center gap-1.5 rounded-full bg-white/95 px-4 py-2 text-xs font-bold text-black shadow-lg transition hover:bg-white hover:scale-105 active:scale-95"
-            >
-              <Sparkles className="h-3.5 w-3.5 fill-black stroke-none" />
-              Upgrade
-            </button>
-          </div>
+        <SettingSidebar name="Settings" navigateTo="Back To Conversations" path="/chat" tagline="This page will help you find the basic settings related to your account" />
 
-          <ProfileCard />
-        </aside>
-
-        {/* Content Area */}
         <section className="min-w-0 flex-1 px-4 pb-28 pt-7 sm:px-7 sm:pt-10 lg:px-12 lg:pb-12 xl:px-16">
           <div className="mx-auto max-w-[620px] lg:max-w-[1024px]">
-            {/* Desktop header row */}
 
 
             {/* Notification banner */}
@@ -134,7 +114,6 @@ export default function SettingsPage() {
               <SettingsPanel id="account">
                 <PanelHeading title="Account" />
                 <div className="mt-4 overflow-hidden rounded-3xl border border-white/[0.06] bg-[#151517]/85 shadow-lg divide-y divide-white/[0.04]">
-                  {/* Row 1: Profile details */}
                   <Link
                     href="/settings/edit-profile"
                     className="flex w-full items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition"
@@ -305,6 +284,15 @@ export default function SettingsPage() {
                     onChange={setMessagePreview}
                   />
 
+                  {/* Row 2.5: Chat sounds */}
+                  <SettingsToggle
+                    icon={<Volume2 />}
+                    title="Chat sounds"
+                    description="Play sounds for sent and received messages"
+                    checked={chatSounds}
+                    onChange={handleChatSoundsChange}
+                  />
+
                   {/* Row 3: Appearance */}
                   <SettingsRow
                     icon={<Monitor />}
@@ -374,7 +362,7 @@ function SettingsPanel({ id, className, children }: { id: SectionId; className?:
 function SettingsRow({ icon, title, description, onClick, href }: { icon: ReactNode; title: string; description?: string; onClick?: () => void; href?: string }) {
   const content = (
     <div className="flex items-center gap-4 min-w-0 flex-1">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/50 text-muted-foreground border border-white/[0.06] transition group-hover:text-foreground group-hover:bg-black/70">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-muted-foreground border border-white/[0.06] transition group-hover:text-foreground">
         {icon}
       </span>
       <div className="min-w-0 flex-1">

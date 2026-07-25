@@ -21,6 +21,7 @@
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
   --color-surface-secondary: var(--surface-secondary);
+  --color-main: var(--main);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -62,12 +63,17 @@
   --radius: 0.75rem;
 
   /* Vyra dark tokens (default) */
-  --background: oklch(0.145 0 0);         /* #0A0A0A */
-  --foreground: oklch(1 0 0);              /* #FFFFFF */
-  --surface-secondary: oklch(0.17 0 0);    /* #121212 */
-  --surface: oklch(0.195 0 0);             /* #181818 */
-  --surface-elevated: oklch(0.225 0 0);    /* #202020 */
-
+  --background: oklch(0.145 0 0);
+  /* #0A0A0A */
+  --foreground: oklch(1 0 0);
+  /* #FFFFFF */
+  --surface-secondary: oklch(0.17 0 0);
+  /* #121212 */
+  --surface: oklch(0.195 0 0);
+  /* #181818 */
+  --surface-elevated: oklch(0.225 0 0);
+  /* #202020 */
+  --main: #c97955;
   --card: oklch(0.195 0 0);
   --card-foreground: oklch(1 0 0);
   --popover: oklch(0.225 0 0);
@@ -78,13 +84,17 @@
   --secondary: oklch(0.225 0 0);
   --secondary-foreground: oklch(1 0 0);
   --muted: oklch(0.195 0 0);
-  --muted-foreground: oklch(0.72 0 0);     /* #A8A8A8 */
+  --muted-foreground: oklch(0.72 0 0);
+  /* #A8A8A8 */
   --accent: oklch(0.225 0 0);
   --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.68 0.19 25);      /* #FF5F57 */
+  --destructive: oklch(0.68 0.19 25);
+  /* #FF5F57 */
   --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.79 0.18 152);         /* #3DDC84 */
-  --warning: oklch(0.82 0.16 78);          /* #FFB547 */
+  --success: oklch(0.79 0.18 152);
+  /* #3DDC84 */
+  --warning: oklch(0.82 0.16 78);
+  /* #FFB547 */
 
   --border: oklch(1 0 0 / 0.06);
   --input: oklch(1 0 0 / 0.08);
@@ -125,15 +135,18 @@
     width: 10px;
     height: 10px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.06);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: padding-box;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.12);
     background-clip: padding-box;
@@ -153,6 +166,7 @@
 @utility noise {
   position: relative;
 }
+
 @utility noise-overlay {
   position: absolute;
   inset: 0;

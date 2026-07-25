@@ -10,6 +10,7 @@ export type ChatHeaderUser = {
     username?: string;
     avatarUrl?: string;
     isOnline?: boolean;
+    lastSeen?: string | null;
 };
 
 type Props = {
@@ -18,6 +19,30 @@ type Props = {
     onToggleContext: () => void;
     isTyping?: boolean;
 };
+
+function formatLastSeen(iso: string) {
+    try {
+        const date = new Date(iso);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+        if (diffDays === 0 && date.getDate() === now.getDate()) {
+            return `Last seen today at ${timeStr}`;
+        } else if (diffDays === 1 || (diffDays === 0 && date.getDate() !== now.getDate())) {
+            return `Last seen yesterday at ${timeStr}`;
+        } else if (diffDays < 7) {
+            const weekday = date.toLocaleDateString([], { weekday: "long" });
+            return `Last seen ${weekday} at ${timeStr}`;
+        } else {
+            return `Last seen on ${date.toLocaleDateString([], { month: "short", day: "numeric" })} at ${timeStr}`;
+        }
+    } catch {
+        return "Offline";
+    }
+}
 
 function Avatar({ user, size }: { user: ChatHeaderUser | null; size: "sm" | "md" }) {
     const initials = user?.displayName
@@ -70,10 +95,14 @@ export default function ChatHeader({ user, onBack, onToggleContext, isTyping }: 
                     <div>
                         <p className="text-[14px] font-semibold leading-tight">{user?.displayName ?? "…"}</p>
                         {isTyping ? (
-                            <p className="text-[11px] text-emerald-500 font-medium animate-pulse">typing...</p>
-                        ) : user?.username && (
-                            <p className="text-[11px] text-muted-foreground">@{user.username}</p>
-                        )}
+                            <p className="text-[11px] text-emerald-500 font-medium animate-pulse leading-none mt-0.5">typing...</p>
+                        ) : user?.isOnline ? (
+                            <p className="text-[11px] text-emerald-500 font-medium leading-none mt-0.5">Online</p>
+                        ) : user?.lastSeen ? (
+                            <p className="text-[11px] text-muted-foreground leading-none mt-0.5">{formatLastSeen(user.lastSeen)}</p>
+                        ) : user?.username ? (
+                            <p className="text-[11px] text-muted-foreground leading-none mt-0.5">@{user.username}</p>
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -89,10 +118,14 @@ export default function ChatHeader({ user, onBack, onToggleContext, isTyping }: 
                         {user?.displayName ?? "…"}
                     </p>
                     {isTyping ? (
-                        <p className="text-[12px] text-emerald-500 font-medium animate-pulse">typing...</p>
-                    ) : user?.username && (
-                        <p className="text-[12px] text-muted-foreground">@{user.username}</p>
-                    )}
+                        <p className="text-[12px] text-emerald-500 font-medium animate-pulse leading-none mt-1">typing...</p>
+                    ) : user?.isOnline ? (
+                        <p className="text-[12px] text-emerald-500 font-medium leading-none mt-1">Online</p>
+                    ) : user?.lastSeen ? (
+                        <p className="text-[12px] text-muted-foreground leading-none mt-1">{formatLastSeen(user.lastSeen)}</p>
+                    ) : user?.username ? (
+                        <p className="text-[12px] text-muted-foreground leading-none mt-1">@{user.username}</p>
+                    ) : null}
                 </div>
             </div>
 

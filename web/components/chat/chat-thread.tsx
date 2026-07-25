@@ -11,9 +11,13 @@ type Props = {
     myUserId: string | null;
     isLoading?: boolean;
     isTyping?: boolean;
+    otherParticipantLastReadAt?: string | null;
+    sendReaction: (messageId: string, reaction: string) => void;
 };
 
-export default function ChatThread({ messages, myUserId, isLoading, isTyping }: Props) {
+export default function
+
+    ChatThread({ messages, myUserId, isLoading, isTyping, otherParticipantLastReadAt, sendReaction }: Props) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isFirstLoad = useRef(true);
@@ -57,14 +61,17 @@ export default function ChatThread({ messages, myUserId, isLoading, isTyping }: 
     }, [wrapper, content]);
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
-        const lenis = lenisRef.current;
-        if (lenis && bottomRef.current) {
-            lenis.scrollTo(bottomRef.current, {
-                immediate: behavior === "instant",
-            });
-        } else {
-            bottomRef.current?.scrollIntoView({ behavior });
-        }
+        setTimeout(() => {
+            const lenis = lenisRef.current;
+            if (lenis) {
+                lenis.resize();
+                lenis.scrollTo("bottom", {
+                    immediate: behavior === "instant",
+                });
+            } else {
+                bottomRef.current?.scrollIntoView({ behavior });
+            }
+        }, 50);
         setUnreadMessage(null);
     };
 
@@ -138,6 +145,13 @@ export default function ChatThread({ messages, myUserId, isLoading, isTyping }: 
                             const isOwn = msg.senderId === myUserId;
                             const grouped = !showDateDivider && prev?.senderId === msg.senderId;
 
+                            let isRead = false;
+                            if (isOwn && otherParticipantLastReadAt) {
+                                const msgDate = new Date(msg.createdAt).getTime();
+                                const readDate = new Date(otherParticipantLastReadAt).getTime();
+                                isRead = msgDate <= readDate;
+                            }
+
                             return (
                                 <React.Fragment key={msg.id}>
                                     {showDateDivider && (
@@ -147,6 +161,9 @@ export default function ChatThread({ messages, myUserId, isLoading, isTyping }: 
                                         message={msg}
                                         isOwn={isOwn}
                                         grouped={grouped}
+                                        isRead={isRead}
+                                        myUserId={myUserId}
+                                        sendReaction={sendReaction}
                                     />
                                 </React.Fragment>
                             );

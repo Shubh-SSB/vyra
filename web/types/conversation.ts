@@ -3,6 +3,7 @@ export type ConversationParticipant = {
     userId: string;
     role: "OWNER" | "ADMIN" | "MEMBER";
     joinedAt: string;
+    lastReadAt?: string | null;
     user: {
         id: string;
         username: string;
@@ -10,6 +11,7 @@ export type ConversationParticipant = {
         avatarUrl?: string;
         isOnline?: boolean;
         email?: string;
+        lastSeen?: string | null;
     };
 };
 

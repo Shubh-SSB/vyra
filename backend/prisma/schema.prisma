@@ -31,48 +31,58 @@ enum FriendRequestStatus {
   REJECTED
 }
 
+enum ReactionType {
+  LIKE
+  LOVE
+  ANGRY
+  SAD
+  WOW
+  LAUGH
+  CUSTOM
+}
+
 model FriendRequest {
-  id         String              @id @default(cuid())
+  id String @id @default(cuid())
 
   senderId   String
   receiverId String
 
-  status     FriendRequestStatus @default(PENDING)
+  status FriendRequestStatus @default(PENDING)
 
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  sender User @relation("FriendRequestSender",fields: [senderId],references: [id],onDelete: Cascade)
+  sender User @relation("FriendRequestSender", fields: [senderId], references: [id], onDelete: Cascade)
 
-  receiver User @relation("FriendRequestReceiver",fields: [receiverId],references: [id],onDelete: Cascade)
+  receiver User @relation("FriendRequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
 
   @@unique([senderId, receiverId])
 }
 
 model User {
-  id                       String                    @id @default(cuid())
+  id String @id @default(cuid())
 
-  username                 String                    @unique
-  displayName              String
-  email                    String?                   @unique
-  passwordHash             String?
+  username     String  @unique
+  displayName  String
+  email        String? @unique
+  passwordHash String?
 
-  avatarUrl                String?
-  bio                      String?                   @db.VarChar(200)
+  avatarUrl String?
+  bio       String? @db.VarChar(200)
 
   profileVisibility  ProfileVisibility  @default(PUBLIC)
-  messagePrivacy     MessagePrivacy      @default(EVERYONE)
-  presenceVisibility PresenceVisibility  @default(FRIENDS_ONLY)
+  messagePrivacy     MessagePrivacy     @default(EVERYONE)
+  presenceVisibility PresenceVisibility @default(FRIENDS_ONLY)
 
-  showLastSeen       Boolean @default(true)
-  showReadReceipts   Boolean @default(true)
-  lastSeen           DateTime?
+  showLastSeen     Boolean   @default(true)
+  showReadReceipts Boolean   @default(true)
+  lastSeen         DateTime?
 
-  isEmailVerified          Boolean                   @default(false)
-  isPhoneVerified          Boolean                   @default(false)
+  isEmailVerified Boolean @default(false)
+  isPhoneVerified Boolean @default(false)
 
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   session                  Session[]
   conversationParticipants ConversationParticipant[]
@@ -80,7 +90,24 @@ model User {
 
   sentFriendRequests FriendRequest[] @relation("FriendRequestSender")
 
-  receivedFriendRequests FriendRequest[] @relation("FriendRequestReceiver")
+  receivedFriendRequests FriendRequest[]   @relation("FriendRequestReceiver")
+  messageReactions       MessageReaction[]
+}
+
+model MessageReaction {
+  messageId String
+  userId    String
+
+  reaction ReactionType
+  customEmoji String?
+
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
 }
 
 model Session {
@@ -127,9 +154,9 @@ model Conversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  participants ConversationParticipant[]
-  messages     Message[]
-  lastMessageAt  DateTime?
+  participants  ConversationParticipant[]
+  messages      Message[]
+  lastMessageAt DateTime?
 }
 
 model ConversationParticipant {
@@ -138,7 +165,8 @@ model ConversationParticipant {
 
   role ParticipantRole @default(MEMBER)
 
-  joinedAt DateTime @default(now())
+  joinedAt   DateTime  @default(now())
+  lastReadAt DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
@@ -157,6 +185,8 @@ model Message {
   type MessageType @default(TEXT)
 
   content String
+
+  reactions MessageReaction[]
 
   createdAt DateTime @default(now())
 

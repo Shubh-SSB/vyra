@@ -5,6 +5,8 @@ import { io, Socket } from "socket.io-client";
 import { getAccessToken } from "@/lib/token";
 import { BASE_URL } from "@/constants/constant";
 import { NewMessagePayload, TypingPayload, UseChatSocketOptions } from "@/types/socket.types";
+import { playSound } from "@/lib/sounds";
+import { MessageReaction } from "@/types/message";
 
 type ConnectionStatus = "connecting" | "joined" | "disconnected";
 
@@ -14,12 +16,18 @@ export function useChatSocket({
     onNewMessage,
     onTypingStart,
     onTypingStop,
+    onMessagesRead,
+    onUserPresence,
+    onMessageReaction,
     onError,
 }: UseChatSocketOptions) {
     const socketRef = useRef<Socket | null>(null);
     const onNewMessageRef = useRef(onNewMessage);
     const onTypingStartRef = useRef(onTypingStart);
     const onTypingStopRef = useRef(onTypingStop);
+    const onMessagesReadRef = useRef(onMessagesRead);
+    const onUserPresenceRef = useRef(onUserPresence);
+    const onMessageReactionRef = useRef(onMessageReaction);
     const onErrorRef = useRef(onError);
     const joinedConversationsRef = useRef<string[]>([]);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
@@ -27,6 +35,9 @@ export function useChatSocket({
     onNewMessageRef.current = onNewMessage;
     onTypingStartRef.current = onTypingStart;
     onTypingStopRef.current = onTypingStop;
+    onMessagesReadRef.current = onMessagesRead;
+    onUserPresenceRef.current = onUserPresence;
+    onMessageReactionRef.current = onMessageReaction;
     onErrorRef.current = onError;
 
     const conversationIdsJson = JSON.stringify(conversationIds);
@@ -108,6 +119,18 @@ export function useChatSocket({
             onTypingStopRef.current?.(payload);
         };
 
+        const handleMessagesRead = (payload: { conversationId: string; userId: string; lastReadAt: string }) => {
+            onMessagesReadRef.current?.(payload);
+        };
+
+        const handleUserPresence = (payload: { userId: string; isOnline: boolean; lastSeen: string | null }) => {
+            onUserPresenceRef.current?.(payload);
+        };
+
+        const handleMessageReaction = (payload: { conversationId: string; messageId: string; reactions: MessageReaction[] }) => {
+            onMessageReactionRef.current?.(payload);
+        };
+
         if (socket.connected) {
             joinConversations();
         }
@@ -119,6 +142,9 @@ export function useChatSocket({
         socket.on("disconnect", handleDisconnect);
         socket.on("userTyping", handleTypingStart);
         socket.on("userStoppedTyping", handleTypingStop);
+        socket.on("messagesRead", handleMessagesRead);
+        socket.on("userPresence", handleUserPresence);
+        socket.on("messageReaction", handleMessageReaction);
 
         return () => {
             joinedConversationsRef.current = [];
@@ -130,6 +156,9 @@ export function useChatSocket({
             socket.off("disconnect", handleDisconnect);
             socket.off("userTyping", handleTypingStart);
             socket.off("userStoppedTyping", handleTypingStop);
+            socket.off("messagesRead", handleMessagesRead);
+            socket.off("userPresence", handleUserPresence);
+            socket.off("messageReaction", handleMessageReaction);
             socket.disconnect();
             socketRef.current = null;
         };
@@ -142,6 +171,7 @@ export function useChatSocket({
         }
 
         socketRef.current.emit("sendMessage", { conversationId: id, content });
+        playSound("sent");
         return true;
     };
 
@@ -157,10 +187,23 @@ export function useChatSocket({
         socketRef.current.emit("typingStop", { conversationId: id });
     };
 
+    const markAsRead = (convId?: string | null) => {
+        const id = convId ?? conversationId;
+        if (!socketRef.current?.connected || !id) return;
+        socketRef.current.emit("markAsRead", { conversationId: id });
+    };
+
+    const sendReaction = (messageId: string, reaction: string) => {
+        if (!socketRef.current?.connected) return;
+        socketRef.current.emit("sendReaction", { messageId, reaction });
+    };
+
     return {
         connectionStatus,
         sendMessage,
         sendTypingStart,
         sendTypingStop,
+        markAsRead,
+        sendReaction,
     };
 }

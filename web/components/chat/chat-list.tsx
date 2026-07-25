@@ -77,14 +77,14 @@ function ConversationRow({
         <button
             onClick={onClick}
             className={cn(
-                "group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-4 py-3 text-left transition-all duration-200 my-0.5",
+                "group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-4 py-3 text-left transition-all duration-150 my-0.5",
                 active
-                    ? "ring-1 ring-border shadow-md"
-                    : "hover:bg-surface/50"
+                    ? "ring-1 ring-border shadow-md bg-white/15"
+                    : "hover:bg-white/15"
             )}
         >
             {/* Background Image & Overlay */}
-            <div className="absolute inset-0 pointer-events-none">
+            {/* <div className="absolute inset-0 pointer-events-none">
                 <Image
                     src="/bg1.jpeg"
                     alt="Tile background"
@@ -100,7 +100,7 @@ function ConversationRow({
                         active ? "from-background/75 via-background/40 to-transparent" : ""
                     )}
                 />
-            </div>
+            </div> */}
 
             {/* Avatar */}
             <div className="relative shrink-0">

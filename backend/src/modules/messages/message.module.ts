@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 
 import { PrismaModule } from "../../prisma/prisma.module";
 
@@ -7,9 +7,10 @@ import { MessagesService } from "./services/message.service"
 import { MessageRepository } from "./repositories/message.repoitory";
 
 import { ConversationRepository } from "../conversations/repositories/conversation.repository";
+import { SocketModule } from "../../socket/socket.module";
 
 @Module({
-    imports: [PrismaModule],
+    imports: [PrismaModule, forwardRef(() => SocketModule)],
     controllers: [MessagesController],
     providers: [
         MessagesService,

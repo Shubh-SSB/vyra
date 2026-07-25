@@ -24,6 +24,7 @@ export class UserMapper {
   static toProfileResponse(
     user: User,
     isOnline?: boolean,
+    lastSeenOverride?: Date | null,
   ): UserProfileResponseDto {
     return {
       id: user.id,
@@ -31,7 +32,7 @@ export class UserMapper {
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
       bio: user.bio,
-      lastSeen: user.lastSeen,
+      lastSeen: lastSeenOverride !== undefined ? lastSeenOverride : user.lastSeen,
       isOnline: isOnline,
       profileVisibility: user.profileVisibility,
       messagePrivacy: user.messagePrivacy,

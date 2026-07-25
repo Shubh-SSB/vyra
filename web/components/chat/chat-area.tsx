@@ -8,7 +8,6 @@ import { getAccessToken } from "@/lib/token";
 import { Message } from "@/types/message";
 import { useMessages } from "@/tanstack/queries/message.query";
 import { useConversations } from "@/tanstack/queries/conversation.query";
-import { useChatSocket } from "@/hooks/use-chat-socket";
 import ChatHeader from "./chat-header";
 import ChatThread from "./chat-thread";
 import ChatComposer from "./chat-composer";
@@ -36,6 +35,7 @@ type Props = {
     sendMessage: (content: string, convId?: string | null) => boolean;
     sendTypingStart: (convId?: string | null) => void;
     sendTypingStop: (convId?: string | null) => void;
+    sendReaction: (messageId: string, reaction: string) => void;
     onToggleProfile?: () => void;
 };
 
@@ -50,6 +50,7 @@ export default function ChatArea({
     sendMessage,
     sendTypingStart,
     sendTypingStop,
+    sendReaction,
     onToggleProfile,
 }: Props) {
     const myUserId = getMyUserId();
@@ -64,6 +65,7 @@ export default function ChatArea({
             username: otherParticipant.user.username,
             avatarUrl: otherParticipant.user.avatarUrl,
             isOnline: otherParticipant.user.isOnline,
+            lastSeen: otherParticipant.user.lastSeen,
         }
         : null;
 
@@ -115,6 +117,8 @@ export default function ChatArea({
                 myUserId={myUserId}
                 isLoading={historyLoading}
                 isTyping={otherUserTyping}
+                otherParticipantLastReadAt={otherParticipant?.lastReadAt}
+                sendReaction={sendReaction}
             />
 
             {(connectionStatus !== "joined" || socketError) && (

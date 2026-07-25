@@ -5,13 +5,14 @@ import { UpdatePrivacyDto, UpdateProfileDto, UpdateUsernameDto } from '../dto/up
 import { FriendRepository } from 'src/modules/friends/repositories/friend.repository';
 import { UserMapper } from '../mappers/user.mapper';
 import { User } from '@prisma/client';
+import { SocketStateService } from '../../../socket/services/socket-state.service';
 
 @Injectable()
 export class UsersService {
     constructor(
         private readonly userRepository: UserRepository,
         private readonly friendRepository: FriendRepository,
-
+        private readonly socketStateService: SocketStateService,
     ) {}
     
     
@@ -33,9 +34,12 @@ export class UsersService {
         );
     }
 
-    // Owner can always view their own profile
-    if (viewerId === user.id) {
-        return UserMapper.toProfileResponse(user);
+    const isOnline = !!this.socketStateService.getUser(user.id);
+    const viewerIdIsUser = viewerId === user.id;
+
+    // Owner can always view their own profile with full presence
+    if (viewerIdIsUser) {
+        return UserMapper.toProfileResponse(user, isOnline, user.lastSeen);
     }
 
     const relationship =
@@ -44,17 +48,28 @@ export class UsersService {
             user.id,
         );
 
+    const isFriend = relationship?.status === "ACCEPTED";
+
+    // Determine presence visibility
+    let canSeePresence = false;
+    if (user.presenceVisibility === "EVERYONE") {
+        canSeePresence = true;
+    } else if (user.presenceVisibility === "FRIENDS_ONLY" && isFriend) {
+        canSeePresence = true;
+    }
+
+    const showOnlineStatus = canSeePresence ? isOnline : false;
+    const showLastSeenTime = (canSeePresence && user.showLastSeen) ? user.lastSeen : null;
+
     switch (user.profileVisibility) {
 
         case "PUBLIC":
-            return UserMapper.toProfileResponse(user);
+            return UserMapper.toProfileResponse(user, showOnlineStatus, showLastSeenTime);
 
         case "FRIENDS_ONLY":
 
-            if (
-                relationship?.status === "ACCEPTED"
-            ) {
-                return UserMapper.toProfileResponse(user);
+            if (isFriend) {
+                return UserMapper.toProfileResponse(user, showOnlineStatus, showLastSeenTime);
             }
 
             throw new ForbiddenException(

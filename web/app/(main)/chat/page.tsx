@@ -22,6 +22,7 @@ import { ConversationService } from "@/services/conversation.service";
 import { useConversations } from "@/tanstack/queries/conversation.query";
 import { useChatSocket } from "@/hooks/use-chat-socket";
 import { getAccessToken } from "@/lib/token";
+import { playSound } from "@/lib/sounds";
 import Image from "next/image";
 
 type Conversation = {
@@ -111,6 +112,8 @@ export default function ChatPage() {
     sendMessage,
     sendTypingStart,
     sendTypingStop,
+    markAsRead,
+    sendReaction,
   } = useChatSocket({
     conversationIds,
     onNewMessage: (message, convId) => {
@@ -118,6 +121,14 @@ export default function ChatPage() {
         if (current.some((existing) => existing.id === message.id)) return current;
         return [...current, message];
       });
+
+      if (message.senderId !== myUserId) {
+        playSound("received");
+      }
+
+      if (convId === activeId) {
+        markAsRead(convId);
+      }
 
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
@@ -135,8 +146,57 @@ export default function ChatPage() {
         [payload.conversationId]: false,
       }));
     },
+    onMessagesRead: ({ conversationId, userId, lastReadAt }) => {
+      queryClient.setQueryData<any[]>(["conversations"], (current = []) => {
+        return current.map((conv) => {
+          if (conv.id !== conversationId) return conv;
+          return {
+            ...conv,
+            participants: conv.participants.map((part: any) => {
+              if (part.userId !== userId) return part;
+              return { ...part, lastReadAt };
+            }),
+          };
+        });
+      });
+    },
+    onUserPresence: ({ userId, isOnline, lastSeen }) => {
+      queryClient.setQueryData<any[]>(["conversations"], (current = []) => {
+        return current.map((conv) => {
+          return {
+            ...conv,
+            participants: conv.participants.map((part: any) => {
+              if (part.userId !== userId) return part;
+              return {
+                ...part,
+                user: {
+                  ...part.user,
+                  isOnline,
+                  lastSeen,
+                },
+              };
+            }),
+          };
+        });
+      });
+    },
+    onMessageReaction: ({ conversationId, messageId, reactions }) => {
+      queryClient.setQueryData<any[]>(["messages", conversationId], (current = []) => {
+        return current.map((msg) => {
+          if (msg.id !== messageId) return msg;
+          return { ...msg, reactions };
+        });
+      });
+    },
     onError: setSocketError,
   });
+
+  // Mark active conversation as read when activeId changes or joins
+  useEffect(() => {
+    if (activeId && connectionStatus === "joined") {
+      markAsRead(activeId);
+    }
+  }, [activeId, connectionStatus, markAsRead]);
 
   // Intercept browser back gesture: when in chat view, go to list instead
   useEffect(() => {
@@ -301,6 +361,7 @@ export default function ChatPage() {
         sendMessage={sendMessage}
         sendTypingStart={sendTypingStart}
         sendTypingStop={sendTypingStop}
+        sendReaction={sendReaction}
         onToggleProfile={() => setProfileOpen((prev) => !prev)}
       />
       <AnimatePresence>

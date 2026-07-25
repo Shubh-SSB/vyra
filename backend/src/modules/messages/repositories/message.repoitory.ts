@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Message, Prisma } from "@prisma/client";
+import { Message, Prisma, ReactionType } from "@prisma/client";
 import { PrismaService } from "../../../prisma/prisma.service";
 
 @Injectable()
@@ -10,7 +10,7 @@ export class MessageRepository {
 
     async create(
         data: Prisma.MessageCreateInput,
-    ): Promise<Message> {
+    ) {
         return this.prisma.message.create({
             data,
             include: {
@@ -27,9 +27,22 @@ export class MessageRepository {
 
     async findById(
         id: string,
-    ): Promise<Message | null> {
+    ) {
         return this.prisma.message.findUnique({
             where: { id },
+            include: {
+                reactions: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                                displayName: true,
+                            },
+                        },
+                    },
+                },
+            },
         });
     }
 
@@ -46,6 +59,17 @@ export class MessageRepository {
                         id: true,
                         username: true,
                         displayName: true,
+                    },
+                },
+                reactions: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                                displayName: true,
+                            },
+                        },
                     },
                 },
             },
@@ -68,6 +92,71 @@ export class MessageRepository {
     async delete(id: string) {
         return this.prisma.message.delete({
             where: { id },
+        });
+    }
+
+    async findReaction(userId: string, messageId: string) {
+        return this.prisma.messageReaction.findUnique({
+            where: {
+                messageId_userId: {
+                    messageId,
+                    userId,
+                },
+            },
+        });
+    }
+
+    async createReaction(userId: string, messageId: string, reaction: ReactionType, customEmoji?: string) {
+        return this.prisma.messageReaction.create({
+            data: {
+                userId,
+                messageId,
+                reaction,
+                customEmoji,
+            },
+        });
+    }
+
+    async updateReaction(userId: string, messageId: string, reaction: ReactionType, customEmoji?: string | null) {
+        return this.prisma.messageReaction.update({
+            where: {
+                messageId_userId: {
+                    messageId,
+                    userId,
+                },
+            },
+            data: {
+                reaction,
+                customEmoji,
+            },
+        });
+    }
+
+    async deleteReaction(userId: string, messageId: string) {
+        return this.prisma.messageReaction.delete({
+            where: {
+                messageId_userId: {
+                    messageId,
+                    userId,
+                },
+            },
+        });
+    }
+
+    async findMessageReactions(messageId: string) {
+        return this.prisma.messageReaction.findMany({
+            where: {
+                messageId,
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
+                    },
+                },
+            },
         });
     }
 }

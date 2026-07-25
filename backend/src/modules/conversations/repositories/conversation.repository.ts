@@ -23,7 +23,7 @@ export class ConversationRepository {
 
   async findById(
     id: string,
-  ): Promise<Conversation | null> {
+  ) {
     return this.prisma.conversation.findUnique({
       where: { id },
       include: {
@@ -62,7 +62,8 @@ export class ConversationRepository {
                 username: true,
                 displayName: true,
                 email: true,
-                // avatarUrl: true,
+                avatarUrl: true,
+                lastSeen: true,
                 isEmailVerified: true,
                 isPhoneVerified: true,
               },
@@ -116,7 +117,8 @@ export class ConversationRepository {
                 username: true,
                 displayName: true,
                 email: true,
-                // avatarUrl: true,
+                avatarUrl: true,
+                lastSeen: true,
                 isEmailVerified: true,
                 isPhoneVerified: true,
               },
@@ -198,6 +200,24 @@ export class ConversationRepository {
             },
             data: {
                 lastMessageAt: new Date(),
+            },
+        });
+    }
+
+    async updateLastReadAt(
+        conversationId: string,
+        userId: string,
+        timestamp: Date,
+    ) {
+        return this.prisma.conversationParticipant.update({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId,
+                },
+            },
+            data: {
+                lastReadAt: timestamp,
             },
         });
     }

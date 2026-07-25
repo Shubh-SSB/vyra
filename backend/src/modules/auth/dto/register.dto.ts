@@ -15,12 +15,12 @@ export class RegisterDto {
     message:
       'Username may contain only letters, numbers, underscores and periods.',
   })
-  username: string;
+  username!: string;
 
   @IsString()
   @MinLength(2)
   @MaxLength(50)
-  displayName: string;
+  displayName!: string;
 
   @IsOptional()
   @IsEmail()
@@ -29,5 +29,5 @@ export class RegisterDto {
   @IsString()
   @MinLength(8)
   @MaxLength(64)
-  password: string;
+  password!: string;
 }
