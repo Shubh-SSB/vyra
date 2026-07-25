@@ -20,6 +20,7 @@ import ChatArea from "@/components/chat/chat-area";
 import UserProfile from "@/components/chat/user-profile";
 import { ConversationService } from "@/services/conversation.service";
 import { useConversations } from "@/tanstack/queries/conversation.query";
+import { useMe } from "@/tanstack/queries/auth.query";
 import { useChatSocket } from "@/hooks/use-chat-socket";
 import { getAccessToken } from "@/lib/token";
 import { playSound } from "@/lib/sounds";
@@ -84,6 +85,7 @@ export default function ChatPage() {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const { data: conversations } = useConversations();
+  const { data: meResponse } = useMe();
   const conversationIds = conversations?.map((c) => c.id) ?? [];
 
   const myUserId = getMyUserId();
