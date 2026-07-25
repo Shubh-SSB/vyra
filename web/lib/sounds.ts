@@ -1,32 +1,34 @@
 let sharedCtx: AudioContext | null = null;
 
-function getAudioContext(): AudioContext | null {
-    if (typeof window === "undefined") return null;
-    
+function initAudio() {
+    if (typeof window === "undefined") return;
+
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return null;
+    if (!AudioContextClass) return;
 
-    if (!sharedCtx) {
-        sharedCtx = new AudioContextClass();
+    const resume = () => {
+        if (!sharedCtx) {
+            sharedCtx = new AudioContextClass();
+        }
+        if (sharedCtx.state === "suspended") {
+            sharedCtx.resume().catch((err) => {
+                console.warn("Failed to resume AudioContext on user interaction:", err);
+            });
+        }
+        // Remove listeners once resumed
+        window.removeEventListener("click", resume);
+        window.removeEventListener("keydown", resume);
+        window.removeEventListener("touchstart", resume);
+    };
 
-        // Setup listener to resume context on user gesture to bypass browser autoplay policies
-        const resume = () => {
-            if (sharedCtx && sharedCtx.state === "suspended") {
-                sharedCtx.resume().catch((err) => {
-                    console.warn("Failed to resume AudioContext on user interaction:", err);
-                });
-            }
-            // Remove listeners once resumed
-            window.removeEventListener("click", resume);
-            window.removeEventListener("keydown", resume);
-            window.removeEventListener("touchstart", resume);
-        };
+    window.addEventListener("click", resume);
+    window.addEventListener("keydown", resume);
+    window.addEventListener("touchstart", resume);
+}
 
-        window.addEventListener("click", resume);
-        window.addEventListener("keydown", resume);
-        window.addEventListener("touchstart", resume);
-    }
-    return sharedCtx;
+// Eagerly initialize on client load
+if (typeof window !== "undefined") {
+    initAudio();
 }
 
 /**
@@ -38,10 +40,17 @@ export function playSound(type: "sent" | "received") {
     if (!enabled) return;
 
     try {
-        const ctx = getAudioContext();
+        if (!sharedCtx) {
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioContextClass) {
+                sharedCtx = new AudioContextClass();
+            }
+        }
+        
+        const ctx = sharedCtx;
         if (!ctx) return;
 
-        // Try to resume the context if it's currently suspended (e.g. browser autoplay restrictions)
+        // Try to resume the context if it's currently suspended
         if (ctx.state === "suspended") {
             ctx.resume().catch(() => {});
         }
@@ -62,11 +71,11 @@ export function playSound(type: "sent" | "received") {
             osc.frequency.exponentialRampToValueAtTime(1050, now + 0.04);
 
             // Volume envelope
-            gain.gain.setValueAtTime(0.06, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
             osc.start(now);
-            osc.stop(now + 0.05);
+            osc.stop(now + 0.08);
         } else {
             // WhatsApp-like warm dual chirp (descending/ascending bubble)
             // Chirp 1
@@ -78,11 +87,11 @@ export function playSound(type: "sent" | "received") {
             osc1.frequency.setValueAtTime(540, now);
             osc1.frequency.exponentialRampToValueAtTime(620, now + 0.05);
 
-            gain1.gain.setValueAtTime(0.05, now);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            gain1.gain.setValueAtTime(0.18, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
 
             osc1.start(now);
-            osc1.stop(now + 0.05);
+            osc1.stop(now + 0.06);
 
             // Chirp 2 (slightly higher, delayed)
             const osc2 = ctx.createOscillator();
@@ -93,11 +102,11 @@ export function playSound(type: "sent" | "received") {
             osc2.frequency.setValueAtTime(720, now + 0.06);
             osc2.frequency.exponentialRampToValueAtTime(800, now + 0.12);
 
-            gain2.gain.setValueAtTime(0.05, now + 0.06);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+            gain2.gain.setValueAtTime(0.18, now + 0.06);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
 
             osc2.start(now + 0.06);
-            osc2.stop(now + 0.12);
+            osc2.stop(now + 0.14);
         }
     } catch (e) {
         console.error("Audio synthesis failed:", e);

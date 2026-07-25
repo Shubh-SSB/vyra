@@ -22,6 +22,7 @@ export default function
     const containerRef = useRef<HTMLDivElement>(null);
     const isFirstLoad = useRef(true);
     const prevMessagesLength = useRef(messages.length);
+    const isNearBottomRef = useRef(true);
     const [unreadMessage, setUnreadMessage] = useState<Message | null>(null);
 
     const [wrapper, setWrapper] = useState<HTMLDivElement | null>(null);
@@ -73,6 +74,7 @@ export default function
             }
         }, 50);
         setUnreadMessage(null);
+        isNearBottomRef.current = true;
     };
 
     const handleScrollToBottom = () => {
@@ -95,14 +97,10 @@ export default function
                 if (lastMsg.senderId === myUserId) {
                     scrollToBottom("smooth");
                 } else {
-                    const container = containerRef.current;
-                    if (container) {
-                        const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
-                        if (isAtBottom) {
-                            scrollToBottom("smooth");
-                        } else {
-                            setUnreadMessage(lastMsg);
-                        }
+                    if (isNearBottomRef.current) {
+                        scrollToBottom("smooth");
+                    } else {
+                        setUnreadMessage(lastMsg);
                     }
                 }
             }
@@ -113,7 +111,8 @@ export default function
     // Monitor scroll events to dismiss the button if manually scrolled to bottom
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const target = e.currentTarget;
-        const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 100;
+        const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 150;
+        isNearBottomRef.current = isAtBottom;
         if (isAtBottom) {
             setUnreadMessage(null);
         }
