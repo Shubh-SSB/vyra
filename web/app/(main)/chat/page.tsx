@@ -82,8 +82,6 @@ export default function ChatPage() {
   const [typingConversations, setTypingConversations] = useState<Record<string, boolean>>({});
   const [socketError, setSocketError] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  // Track whether we pushed a history entry for the chat view
-  const chatHistoryPushed = useRef(false);
 
   const { data: conversations } = useConversations();
   const conversationIds = conversations?.map((c) => c.id) ?? [];
@@ -198,37 +196,55 @@ export default function ChatPage() {
     }
   }, [activeId, connectionStatus, markAsRead]);
 
+  const openProfile = () => {
+    setProfileOpen(true);
+    window.history.pushState({ view: "profile" }, "");
+  };
+
+  const closeProfile = () => {
+    setProfileOpen(false);
+    if (window.history.state?.view === "profile") {
+      window.history.back();
+    }
+  };
+
   // Intercept browser back gesture: when in chat view, go to list instead
   useEffect(() => {
+    if (typeof window !== "undefined" && !window.history.state) {
+      window.history.replaceState({ view: "list" }, "");
+    }
+
     const onPopState = (e: PopStateEvent) => {
-      if (e.state?.mobileChat === true) {
-        // User swiped/pressed back while in chat — go to list
+      const view = e.state?.view;
+      if (profileOpen && view !== "profile") {
+        setProfileOpen(false);
+      }
+      if (mobileView === "chat" && view !== "chat" && view !== "profile") {
         setMobileView("list");
-        chatHistoryPushed.current = false;
-        // Push the list state back so further back navigations work correctly
-        window.history.pushState({ mobileChat: false }, "");
+      }
+      if (mobileView === "list" && view === "chat") {
+        setMobileView("chat");
       }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+  }, [mobileView, profileOpen]);
 
 
   /** Select a conversation — on mobile, push a history entry and switch to chat view */
   const selectConversation = (id: string) => {
     setActiveId(id);
     setMobileView("chat");
-    // Push a history entry so swipe-back hits this state and we can intercept it
-    window.history.pushState({ mobileChat: true }, "");
-    chatHistoryPushed.current = true;
+    if (window.history.state?.view !== "chat") {
+      window.history.pushState({ view: "chat" }, "");
+    }
   };
 
   /** Go back to contacts list — also pop the history entry we pushed */
   const goBackToList = () => {
     setMobileView("list");
-    if (chatHistoryPushed.current) {
+    if (window.history.state?.view === "chat") {
       window.history.back();
-      chatHistoryPushed.current = false;
     }
   };
 
@@ -366,7 +382,14 @@ export default function ChatPage() {
         sendTypingStart={sendTypingStart}
         sendTypingStop={sendTypingStop}
         sendReaction={sendReaction}
-        onToggleProfile={() => setProfileOpen((prev) => !prev)}
+        onToggleProfile={() => {
+          if (profileOpen) {
+            closeProfile();
+          } else {
+            openProfile();
+          }
+        }}
+        myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
       />
       <AnimatePresence>
         {profileOpen && activeId && (
@@ -382,8 +405,8 @@ export default function ChatPage() {
               <div className="w-[380px] h-full">
                 <UserProfile
                   user={otherUser}
-                  onClose={() => setProfileOpen(false)}
-                  onMessageClick={() => setProfileOpen(false)}
+                  onClose={closeProfile}
+                  onMessageClick={closeProfile}
                 />
               </div>
             </motion.div>
@@ -397,8 +420,8 @@ export default function ChatPage() {
             >
               <UserProfile
                 user={otherUser}
-                onClose={() => setProfileOpen(false)}
-                onMessageClick={() => setProfileOpen(false)}
+                onClose={closeProfile}
+                onMessageClick={closeProfile}
               />
             </motion.div>
           </>

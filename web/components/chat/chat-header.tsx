@@ -18,6 +18,7 @@ type Props = {
     onBack: () => void;
     onToggleContext: () => void;
     isTyping?: boolean;
+    myShowLastSeen?: boolean;
 };
 
 function formatLastSeen(iso: string) {
@@ -79,7 +80,7 @@ function Avatar({ user, size }: { user: ChatHeaderUser | null; size: "sm" | "md"
     );
 }
 
-export default function ChatHeader({ user, onBack, onToggleContext, isTyping }: Props) {
+export default function ChatHeader({ user, onBack, onToggleContext, isTyping, myShowLastSeen }: Props) {
     return (
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background px-6">
             {/* Mobile */}
@@ -98,7 +99,7 @@ export default function ChatHeader({ user, onBack, onToggleContext, isTyping }: 
                             <p className="text-[11px] text-emerald-500 font-medium animate-pulse leading-none mt-0.5">typing...</p>
                         ) : user?.isOnline ? (
                             <p className="text-[11px] text-emerald-500 font-medium leading-none mt-0.5">Online</p>
-                        ) : user?.lastSeen ? (
+                        ) : (user?.lastSeen && myShowLastSeen !== false) ? (
                             <p className="text-[11px] text-muted-foreground leading-none mt-0.5">{formatLastSeen(user.lastSeen)}</p>
                         ) : user?.username ? (
                             <p className="text-[11px] text-muted-foreground leading-none mt-0.5">@{user.username}</p>
@@ -121,7 +122,7 @@ export default function ChatHeader({ user, onBack, onToggleContext, isTyping }: 
                         <p className="text-[12px] text-emerald-500 font-medium animate-pulse leading-none mt-1">typing...</p>
                     ) : user?.isOnline ? (
                         <p className="text-[12px] text-emerald-500 font-medium leading-none mt-1">Online</p>
-                    ) : user?.lastSeen ? (
+                    ) : (user?.lastSeen && myShowLastSeen !== false) ? (
                         <p className="text-[12px] text-muted-foreground leading-none mt-1">{formatLastSeen(user.lastSeen)}</p>
                     ) : user?.username ? (
                         <p className="text-[12px] text-muted-foreground leading-none mt-1">@{user.username}</p>

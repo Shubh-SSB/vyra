@@ -37,6 +37,7 @@ type Props = {
     sendTypingStop: (convId?: string | null) => void;
     sendReaction: (messageId: string, reaction: string) => void;
     onToggleProfile?: () => void;
+    myShowLastSeen?: boolean;
 };
 
 export default function ChatArea({
@@ -52,6 +53,7 @@ export default function ChatArea({
     sendTypingStop,
     sendReaction,
     onToggleProfile,
+    myShowLastSeen,
 }: Props) {
     const myUserId = getMyUserId();
     const { data: historyMessages, isLoading: historyLoading } = useMessages(conversationId);
@@ -110,6 +112,7 @@ export default function ChatArea({
                 onBack={goBackToList}
                 onToggleContext={onToggleProfile ?? (() => { })}
                 isTyping={otherUserTyping}
+                myShowLastSeen={myShowLastSeen}
             />
 
             <ChatThread

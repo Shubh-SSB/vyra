@@ -58,8 +58,9 @@ export class UsersService {
         canSeePresence = true;
     }
 
+    const viewer = await this.userRepository.findById(viewerId);
     const showOnlineStatus = canSeePresence ? isOnline : false;
-    const showLastSeenTime = (canSeePresence && user.showLastSeen) ? user.lastSeen : null;
+    const showLastSeenTime = (canSeePresence && user.showLastSeen && viewer?.showLastSeen) ? user.lastSeen : null;
 
     switch (user.profileVisibility) {
 

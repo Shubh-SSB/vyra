@@ -96,7 +96,17 @@ export default function SettingsPage() {
         <SettingSidebar name="Settings" navigateTo="Back To Conversations" path="/chat" tagline="This page will help you find the basic settings related to your account" />
 
         <section className="min-w-0 flex-1 px-4 pb-28 pt-7 sm:px-7 sm:pt-10 lg:px-12 lg:pb-12 xl:px-16">
-          <div className="mx-auto max-w-[620px] lg:max-w-[1024px]">
+          <div className="mx-auto max-w-[620px] lg:max-w-[1024px] w-full">
+
+            {/* Mobile Settings Header */}
+            <div className="flex items-center justify-between mb-6 lg:hidden">
+              <Link href="/chat" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-all duration-200">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="text-sm font-medium">Back to Chats</span>
+              </Link>
+              <h1 className="text-sm font-semibold font-display text-muted-foreground">Settings</h1>
+              <div className="w-20" />
+            </div>
 
 
             {/* Notification banner */}
@@ -116,6 +126,7 @@ export default function SettingsPage() {
                 <div className="mt-4 overflow-hidden rounded-3xl border border-white/[0.06] bg-[#151517]/85 shadow-lg divide-y divide-white/[0.04]">
                   <Link
                     href="/settings/edit-profile"
+                    replace
                     className="flex w-full items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition"
                   >
                     <div className="flex items-center gap-4">
@@ -315,30 +326,10 @@ export default function SettingsPage() {
         </section>
       </div>
 
-      {/* Floating Pill Bottom Navigation for Mobile */}
-      <nav aria-label="Mobile settings sections" className="fixed inset-x-0 bottom-6 z-30 lg:hidden flex justify-center px-4">
-        <div className="flex items-center justify-around gap-2.5 rounded-full border border-white/10 bg-black/80 backdrop-blur-lg px-6 py-2 shadow-2xl">
-          {navigation.map((item) => {
-            const isActive = activeSection === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => selectSection(item.id)}
-                className={cn(
-                  "flex h-11 w-11 flex-col items-center justify-center rounded-full transition-all duration-200",
-                  isActive
-                    ? "bg-white text-black scale-105 shadow-[0_4px_12px_rgba(255,255,255,0.25)]"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                title={item.label}
-              >
-                {item.icon}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      {/* Floating Profile/Logout Card for Mobile */}
+      <div className="fixed inset-x-0 bottom-6 z-30 lg:hidden px-4">
+        <ProfileCard />
+      </div>
     </main>
   );
 }
@@ -378,7 +369,7 @@ function SettingsRow({ icon, title, description, onClick, href }: { icon: ReactN
 
   if (href) {
     return (
-      <Link href={href} className={className}>
+      <Link href={href} replace className={className}>
         {content}
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground ml-2" />
       </Link>
