@@ -101,7 +101,7 @@ export default function ChatArea({
 
     return (
         <main className={cn(
-            "min-w-0 flex-1 flex-col bg-background bg-chat-doodles",
+            "min-w-0 flex-1 flex-col bg-background bg-chat-doodles overflow-hidden",
             "md:flex",
             mobileView === "chat" ? "flex" : "hidden",
         )}>

@@ -129,7 +129,7 @@ export default function
 
     return (
         <div className="relative flex-1 flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto" ref={setWrapperRef} onScroll={handleScroll}>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden" ref={setWrapperRef} onScroll={handleScroll}>
                 <div className="mx-auto flex max-w-[820px] flex-col px-6 pb-8 pt-6" ref={setContent}>
                     {messages.length === 0 ? (
                         <div className="py-8 text-center text-[13px] text-muted-foreground">

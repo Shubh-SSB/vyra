@@ -11,7 +11,7 @@ import {
   Users,
   MessageSquare,
 } from "lucide-react";
-import { VyraIcon, VyraMark } from "@/components/vyra/logo";
+import { VyraIcon, VyraMark, VyraWordmark } from "@/components/vyra/logo";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import SearchInput from "@/components/search/search-input";
@@ -247,7 +247,7 @@ export default function ChatPage() {
 
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+    <div className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-background text-foreground md:static md:h-screen">
 
 
       <aside
@@ -258,6 +258,18 @@ export default function ChatPage() {
             : "hidden",
         )}
       >
+        {/* Mobile Top Bar */}
+        <div className="flex h-14 items-center justify-between border-b border-border bg-[#0e0e10]/80 backdrop-blur-md px-5 md:hidden shrink-0">
+          <VyraWordmark />
+          <Link
+            href="/settings"
+            title="Settings"
+            aria-label="Settings"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+        </div>
 
         <div className="px-5 pt-5">
           <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
@@ -297,14 +309,6 @@ export default function ChatPage() {
                   <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground">
                     <Plus className="h-4 w-4" strokeWidth={1.75} />
                   </button>
-                  <Link
-                    href="/settings"
-                    title="Settings"
-                    aria-label="Settings"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground md:hidden"
-                  >
-                    <Settings className="h-4 w-4" strokeWidth={1.75} />
-                  </Link>
                 </div>
               </div>
               <div className="relative">
