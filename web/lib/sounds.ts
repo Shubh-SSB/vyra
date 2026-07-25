@@ -1,3 +1,34 @@
+let sharedCtx: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
+    if (typeof window === "undefined") return null;
+    
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return null;
+
+    if (!sharedCtx) {
+        sharedCtx = new AudioContextClass();
+
+        // Setup listener to resume context on user gesture to bypass browser autoplay policies
+        const resume = () => {
+            if (sharedCtx && sharedCtx.state === "suspended") {
+                sharedCtx.resume().catch((err) => {
+                    console.warn("Failed to resume AudioContext on user interaction:", err);
+                });
+            }
+            // Remove listeners once resumed
+            window.removeEventListener("click", resume);
+            window.removeEventListener("keydown", resume);
+            window.removeEventListener("touchstart", resume);
+        };
+
+        window.addEventListener("click", resume);
+        window.addEventListener("keydown", resume);
+        window.addEventListener("touchstart", resume);
+    }
+    return sharedCtx;
+}
+
 /**
  * Web Audio API synthesizer for premium chat sound effects (sent and received)
  */
@@ -7,10 +38,14 @@ export function playSound(type: "sent" | "received") {
     if (!enabled) return;
 
     try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContextClass) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
 
-        const ctx = new AudioContextClass();
+        // Try to resume the context if it's currently suspended (e.g. browser autoplay restrictions)
+        if (ctx.state === "suspended") {
+            ctx.resume().catch(() => {});
+        }
+
         const now = ctx.currentTime;
 
         if (type === "sent") {
