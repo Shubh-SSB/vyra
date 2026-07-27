@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { getAccessToken } from "@/lib/token";
 import { BASE_URL } from "@/constants/constant";
-import { NewMessagePayload, TypingPayload, UseChatSocketOptions } from "@/types/socket.types";
+import { MessageEditPayload, NewMessagePayload, TypingPayload, UseChatSocketOptions } from "@/types/socket.types";
 import { playSound } from "@/lib/sounds";
-import { MessageReaction } from "@/types/message";
+import { Message, MessageReaction } from "@/types/message";
+import { queryClient } from "@/tanstack/query-client";
 
 type ConnectionStatus = "connecting" | "joined" | "disconnected";
 
@@ -20,6 +21,7 @@ export function useChatSocket({
     onUserPresence,
     onMessageReaction,
     onError,
+    onMessageEdited,
 }: UseChatSocketOptions) {
     const socketRef = useRef<Socket | null>(null);
     const onNewMessageRef = useRef(onNewMessage);
@@ -28,6 +30,7 @@ export function useChatSocket({
     const onMessagesReadRef = useRef(onMessagesRead);
     const onUserPresenceRef = useRef(onUserPresence);
     const onMessageReactionRef = useRef(onMessageReaction);
+    const onMessageEditedRef = useRef(onMessageEdited);
     const onErrorRef = useRef(onError);
     const joinedConversationsRef = useRef<string[]>([]);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
@@ -131,6 +134,18 @@ export function useChatSocket({
             onMessageReactionRef.current?.(payload);
         };
 
+        const handleMessageEdited = (payload: MessageEditPayload) => {
+            onMessageEditedRef.current?.(payload)
+        }
+
+        // const handleMessageDeleted = (payload: { messageId: string; deleteType: string, conversationId: string }) => {
+        //     if (payload.deleteType === "FOR_EVERYONE") {
+        //         queryClient.setQueryData<any>(['messages, conversationId'], (current: any) => {
+        //             if ()
+        //         })
+        //     }
+        // }
+
         if (socket.connected) {
             joinConversations();
         }
@@ -145,6 +160,26 @@ export function useChatSocket({
         socket.on("messagesRead", handleMessagesRead);
         socket.on("userPresence", handleUserPresence);
         socket.on("messageReaction", handleMessageReaction);
+        socket.on("messageEdited", handleMessageEdited);
+        socket.on('messageDeleted', ({ messageId, deleteType, conversationId }) => {
+            if (deleteType === 'FOR_EVERYONE') {
+                // Update the TanStack Query cache — mark the message as deleted
+                queryClient.setQueryData<any>(['messages', conversationId], (current: any) => {
+                    if (!current) return current;
+                    return {
+                        ...current,
+                        pages: current.pages.map((page: Message[]) =>
+                            page.map((msg) =>
+                                msg.id === messageId
+                                    ? { ...msg, deletedAt: new Date().toISOString(), content: 'This message was deleted' }
+                                    : msg,
+                            ),
+                        ),
+                    };
+                });
+            }
+        });
+
 
         return () => {
             joinedConversationsRef.current = [];
@@ -159,18 +194,20 @@ export function useChatSocket({
             socket.off("messagesRead", handleMessagesRead);
             socket.off("userPresence", handleUserPresence);
             socket.off("messageReaction", handleMessageReaction);
+            socket.off("messageEdited", handleMessageEdited);
+            socket.off('messageDeleted');
             socket.disconnect();
             socketRef.current = null;
         };
     }, [conversationId, conversationIdsJson]);
 
-    const sendMessage = (content: string, convId?: string | null): boolean => {
+    const sendMessage = (content: string, convId?: string | null, replyToId?: string | null): boolean => {
         const id = convId ?? conversationId;
         if (!socketRef.current?.connected || !id) {
             return false;
         }
 
-        socketRef.current.emit("sendMessage", { conversationId: id, content });
+        socketRef.current.emit("sendMessage", { conversationId: id, content, replyToId });
         playSound("sent");
         return true;
     };
@@ -197,6 +234,7 @@ export function useChatSocket({
         if (!socketRef.current?.connected) return;
         socketRef.current.emit("sendReaction", { messageId, reaction });
     };
+
 
     return {
         connectionStatus,

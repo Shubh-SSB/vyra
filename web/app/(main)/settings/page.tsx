@@ -8,6 +8,7 @@ import {
   ChevronRight,
   CircleHelp,
   Eye,
+  EyeOff,
   Fingerprint,
   KeyRound,
   Laptop,
@@ -26,6 +27,7 @@ import {
   QrCode,
   Clock,
   Volume2,
+  Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Avatar from "@/components/ui/avatar";
@@ -270,6 +272,22 @@ export default function SettingsPage() {
                     title="Presence & last active"
                     description={user.presenceVisibility ? `Visible to ${user.presenceVisibility.toLowerCase().replace('_', ' ')}` : "Visible to connections"}
                     href="/settings/presence"
+                  />
+
+                  {/* Row 6: Hidden Messages */}
+                  <SettingsRow
+                    icon={<EyeOff />}
+                    title="Hidden Messages"
+                    description="View and unhide messages you've hidden"
+                    href="/settings/hidden-messages"
+                  />
+
+                  {/* Row 7: Saved Collections */}
+                  <SettingsRow
+                    icon={<Bookmark />}
+                    title="Saved Collections"
+                    description="Organize and view bookmarked messages"
+                    href="/settings/collections"
                   />
                 </div>
               </SettingsPanel>

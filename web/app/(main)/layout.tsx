@@ -6,7 +6,7 @@ import { getAccessToken } from "@/lib/token";
 import Link from "next/link";
 import { VyraIcon } from "@/components/vyra/logo";
 import RailIcon from "@/components/ui/rail-icon";
-import { Archive, Pin, Settings } from "lucide-react";
+import { Archive, EyeOff, Pin, Settings, Bookmark } from "lucide-react";
 
 
 
@@ -35,6 +35,22 @@ export default function MainLayout({
                     <RailIcon label="Chats" active />
                     <RailIcon label="Pinned" icon={<Pin className="h-4 w-4" strokeWidth={1.5} />} />
                     <RailIcon label="Archive" icon={<Archive className="h-4 w-4" strokeWidth={1.5} />} />
+                    <Link
+                        href="/settings/hidden-messages"
+                        title="Hidden Messages"
+                        aria-label="Hidden Messages"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                    >
+                        <EyeOff className="h-4 w-4" strokeWidth={1.5} />
+                    </Link>
+                    <Link
+                        href="/settings/collections"
+                        title="Saved Collections"
+                        aria-label="Saved Collections"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                    >
+                        <Bookmark className="h-4 w-4" strokeWidth={1.5} />
+                    </Link>
                     <Link
                         href="/settings"
                         title="Settings"

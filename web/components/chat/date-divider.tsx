@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -72,7 +73,7 @@ type DateDividerProps = {
     className?: string;
 };
 
-export default function DateDivider({ date, className }: DateDividerProps) {
+const DateDivider = memo(function DateDivider({ date, className }: DateDividerProps) {
     const label = formatChatDateLabel(date);
 
     if (!label) return null;
@@ -96,4 +97,6 @@ export default function DateDivider({ date, className }: DateDividerProps) {
             <div className="h-px flex-1 bg-gradient-to-l from-transparent via-border to-border/40" />
         </motion.div>
     );
-}
+});
+
+export default DateDivider;

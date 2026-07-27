@@ -41,6 +41,23 @@ enum ReactionType {
   CUSTOM
 }
 
+enum MessageDeleteType {
+  FOR_ME
+  FOR_EVERYONE
+}
+
+model MessageHide {
+  messageId String
+  userId    String
+
+  hiddenAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+}
+
 model FriendRequest {
   id String @id @default(cuid())
 
@@ -92,13 +109,17 @@ model User {
 
   receivedFriendRequests FriendRequest[]   @relation("FriendRequestReceiver")
   messageReactions       MessageReaction[]
+
+  deletedMessages Message[]     @relation("MessageDeletedBy")
+  hiddenMessages  MessageHide[]
+  collections     Collection[]
 }
 
 model MessageReaction {
   messageId String
   userId    String
 
-  reaction ReactionType
+  reaction    ReactionType
   customEmoji String?
 
   createdAt DateTime @default(now())
@@ -194,9 +215,54 @@ model Message {
 
   editedAt DateTime?
 
-  deletedAt DateTime?
+  deletedAt    DateTime?
+  deleteById   String?
+  restoreUntil DateTime?
 
+  deletedBy User? @relation("MessageDeletedBy", fields: [deleteById], references: [id], onDelete: SetNull)
+
+  replyToId String?
+
+  replyTo Message? @relation("MessageReplies", fields: [replyToId], onDelete: SetNull, references: [id])
+
+  replies      Message[]    @relation("MessageReplies")
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  sender User @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  sender   User             @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  hiddenBy MessageHide[]
+  savedIn  CollectionItem[]
+
+  @@index([conversationId, deletedAt])
+  @@index([restoreUntil])
+}
+
+model Collection {
+  id    String  @id @default(cuid())
+  name  String
+  emoji String?
+
+  userId String
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CollectionItem[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model CollectionItem {
+  collectionId String
+  messageId    String
+
+  savedAt DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  message    Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, messageId])
 }

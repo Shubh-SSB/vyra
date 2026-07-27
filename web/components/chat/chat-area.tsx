@@ -6,8 +6,9 @@ import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAccessToken } from "@/lib/token";
 import { Message } from "@/types/message";
-import { useMessages } from "@/tanstack/queries/message.query";
+import { useInfiniteMessages } from "@/tanstack/queries/message.query";
 import { useConversations } from "@/tanstack/queries/conversation.query";
+import { MessageService } from "@/services/message.service";
 import ChatHeader from "./chat-header";
 import ChatThread from "./chat-thread";
 import ChatComposer from "./chat-composer";
@@ -32,7 +33,7 @@ type Props = {
     connectionStatus: string;
     socketError: string | null;
     setSocketError: (err: string | null) => void;
-    sendMessage: (content: string, convId?: string | null) => boolean;
+    sendMessage: (content: string, convId?: string | null, replyToId?: string | null) => boolean;
     sendTypingStart: (convId?: string | null) => void;
     sendTypingStop: (convId?: string | null) => void;
     sendReaction: (messageId: string, reaction: string) => void;
@@ -55,9 +56,95 @@ export default function ChatArea({
     onToggleProfile,
     myShowLastSeen,
 }: Props) {
+    const queryClient = useQueryClient();
     const myUserId = getMyUserId();
-    const { data: historyMessages, isLoading: historyLoading } = useMessages(conversationId);
+    const {
+        data: messagesData,
+        isLoading: historyLoading,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteMessages(conversationId);
+    
+    const historyMessages = messagesData ? [...messagesData.pages].reverse().flat() : [];
     const { data: conversations } = useConversations();
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+    const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+
+    const handleEdit = (message: Message) => {
+        setReplyingTo(null);
+        setEditingMessage(message);
+    };
+
+    // Reset reply state on active conversation change
+    useEffect(() => {
+        setReplyingTo(null);
+        setEditingMessage(null);
+    }, [conversationId]);
+
+    const updateEditedMessageInCache = (
+        updatedMessage: Pick<Message, "id" | "content" | "editedAt">,
+    ) => {
+        if (!conversationId) return;
+
+        queryClient.setQueryData<any>(["messages", conversationId], (current: any) => {
+            if (!current) return current;
+
+            return {
+                ...current,
+                pages: current.pages.map((page: Message[]) =>
+                    page.map((existingMessage) => {
+                        if (existingMessage.id === updatedMessage.id) {
+                            return { ...existingMessage, ...updatedMessage };
+                        }
+
+                        if (
+                            existingMessage.replyToId === updatedMessage.id &&
+                            existingMessage.replyTo
+                        ) {
+                            return {
+                                ...existingMessage,
+                                replyTo: {
+                                    ...existingMessage.replyTo,
+                                    ...updatedMessage,
+                                },
+                            };
+                        }
+
+                        return existingMessage;
+                    }),
+                ),
+            };
+        });
+    };
+
+    const handleSaveEdit = async (content: string) => {
+        if (!editingMessage) return false;
+
+        setSocketError(null);
+
+        try {
+            const response = await MessageService.editMessage(
+                editingMessage.id,
+                content,
+            );
+
+            updateEditedMessageInCache(response.data);
+            setEditingMessage(null);
+            return true;
+        } catch (error: unknown) {
+            const errorMessage =
+                error &&
+                typeof error === "object" &&
+                "message" in error &&
+                typeof error.message === "string"
+                    ? error.message
+                    : "Unable to edit the message. Please try again.";
+
+            setSocketError(errorMessage);
+            return false;
+        }
+    };
 
     const conversation = conversations?.find((item) => item.id === conversationId);
     const otherParticipant = conversation?.participants.find((participant) => participant.userId !== myUserId);
@@ -76,10 +163,72 @@ export default function ChatArea({
     const handleSend = (content: string) => {
         setSocketError(null);
 
-        if (!sendMessage(content, conversationId)) {
+        if (!sendMessage(content, conversationId, replyingTo?.id)) {
             setSocketError("Chat is still connecting. Please try again in a moment.");
+        } else {
+            setReplyingTo(null);
         }
     };
+
+    const removeMessageFromCache = (messageId: string) => {
+        if (!conversationId) return;
+        queryClient.setQueryData<any>(['messages', conversationId], (current: any) => {
+            if (!current) return current;
+            return {
+                ...current,
+                pages: current.pages.map((page: Message[]) =>
+                    page.filter((msg) => msg.id !== messageId),
+                ),
+            };
+        });
+    };
+
+    const markMessageDeleted = (messageId: string) => {
+        if (!conversationId) return;
+        queryClient.setQueryData<any>(['messages', conversationId], (current: any) => {
+            if (!current) return current;
+            return {
+                ...current,
+                pages: current.pages.map((page: Message[]) =>
+                    page.map((msg) =>
+                        msg.id === messageId
+                            ? { ...msg, deletedAt: new Date().toISOString(), content: 'This message was deleted' }
+                            : msg,
+                    ),
+                ),
+            };
+        });
+    };
+
+    const handleDeleteForMe = async (messageId: string) => {
+        try {
+            await MessageService.deleteForMe(messageId);
+            removeMessageFromCache(messageId); // immediately remove from UI
+        } catch (error: any) {
+            setSocketError(error.message ?? 'Failed to delete message');
+        }
+    };
+
+    const handleDeleteForEveryone = async (messageId: string) => {
+        try {
+            await MessageService.deleteForEveryone(messageId);
+            markMessageDeleted(messageId); // mark as deleted in UI
+            // The socket event 'messageDeleted' will handle the other participants
+        } catch (error: any) {
+            setSocketError(error.message ?? 'Failed to delete message');
+        }
+    };
+
+    const handleHide = async (messageId: string) => {
+        try {
+            await MessageService.hideMessage(messageId);
+            removeMessageFromCache(messageId); // just remove from this user's view
+        } catch (error: any) {
+            setSocketError(error.message ?? 'Failed to hide message');
+        }
+    };
+
+
 
     if (!conversationId) {
         return (
@@ -122,6 +271,14 @@ export default function ChatArea({
                 isTyping={otherUserTyping}
                 otherParticipantLastReadAt={otherParticipant?.lastReadAt}
                 sendReaction={sendReaction}
+                onReply={setReplyingTo}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={!!hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                onEdit={handleEdit}
+                onDeleteForMe={handleDeleteForMe}
+                onDeleteForEveryone={handleDeleteForEveryone}
+                onHide={handleHide}
             />
 
             {(connectionStatus !== "joined" || socketError) && (
@@ -135,6 +292,11 @@ export default function ChatArea({
                 disabled={connectionStatus !== "joined"}
                 onTypingStart={() => conversationId && sendTypingStart(conversationId)}
                 onTypingStop={() => conversationId && sendTypingStop(conversationId)}
+                replyingTo={replyingTo}
+                onCancelReply={() => setReplyingTo(null)}
+                editingMessage={editingMessage}
+                onSaveEdit={handleSaveEdit}
+                onCancelEdit={() => setEditingMessage(null)}
             />
         </main>
     );

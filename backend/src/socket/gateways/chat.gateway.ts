@@ -179,6 +179,7 @@ export class ChatGateway
             client.data.user.id,
             body.conversationId,
             body.content,
+            body.replyToId,
         ); 
 
         this.server.to(body.conversationId).emit("newMessage", {
@@ -198,8 +199,6 @@ export class ChatGateway
         @MessageBody() body: TypingPayload,
     ) {
         const user = client.data.user;
-
-        const conversationId = body.conversationId;
 
         const isParticipant = await this.conversationRepository.isParticipant(
             body.conversationId,
@@ -305,6 +304,45 @@ export class ChatGateway
         });
     }
 
+    broadcastMessageDeleted(
+        conversationId: string,
+        messageId: string,
+        deleteType: "FOR_ME" | "FOR_EVERYONE"
+    ) {
+        this.server.to(conversationId).emit("messageDeleted", {
+            conversationId,
+            messageId,
+            deleteType,
+        });
+    }
+
+    @SubscribeMessage("deleteMessage")
+    async deleteMessage(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() body: { messageId: string; deleteType: "FOR_ME" | "FOR_EVERYONE" },
+    ) {
+        const user = client.data.user;
+        if (!user) return;
+
+        try {
+            if (body.deleteType === "FOR_EVERYONE") {
+                const result = await this.messageService.deleteForEveryone(user.id, body.messageId);
+                this.broadcastMessageDeleted(result.conversationId, result.id, "FOR_EVERYONE");
+            } else {
+                await this.messageService.deleteForMe(user.id, body.messageId);
+
+                client.emit('messageDeleted', {
+                    messageId: body.messageId,
+                    deleteType: "FOR_ME",
+                })
+            }
+        } catch (error: any) {
+            client.emit("error", {
+                message: error.message,
+            });
+        }
+    }
+
     @SubscribeMessage("sendReaction")
     async sendReaction(
         @ConnectedSocket() client: Socket,
@@ -331,5 +369,19 @@ export class ChatGateway
                 message: error.message,
             });
         }
+    }
+
+    broadcastMessageEdited(
+        conversationId: string,
+        message: {
+            id: string;
+            content: string;
+            editedAt: Date | null;
+        },
+    ) {
+        this.server.to(conversationId).emit("messageEdited", {
+            conversationId,
+            message,
+        });
     }
 }

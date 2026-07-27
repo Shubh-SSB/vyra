@@ -23,20 +23,10 @@ import { useConversations } from "@/tanstack/queries/conversation.query";
 import { useMe } from "@/tanstack/queries/auth.query";
 import { useChatSocket } from "@/hooks/use-chat-socket";
 import { getAccessToken } from "@/lib/token";
+import { useSearchParams } from "next/navigation";
 import { playSound } from "@/lib/sounds";
 import Image from "next/image";
 
-type Conversation = {
-  id: string;
-  name: string;
-  handle: string;
-  preview: string;
-  time: string;
-  unread?: number;
-  pinned?: boolean;
-  online?: boolean;
-  // messages: Message[]
-};
 
 type Connection = {
   id: string;
@@ -54,9 +44,6 @@ type Connection = {
   tags: string[];
   accentColor: string; // hsl string for avatar gradient
 };
-
-
-const ease = [0.22, 1, 0.36, 1] as const;
 
 /** Mobile view state: 'list' = contacts sidebar, 'chat' = active conversation */
 type MobileView = "list" | "chat";
@@ -77,12 +64,21 @@ export default function ChatPage() {
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [contextOpen, setContextOpen] = useState(true);
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("chats");
   const [typingConversations, setTypingConversations] = useState<Record<string, boolean>>({});
   const [socketError, setSocketError] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const searchParams = useSearchParams();
+  const convId = searchParams.get("convId");
+
+  useEffect(() => {
+    if (convId) {
+      setActiveId(convId);
+      setMobileView("chat");
+    }
+  }, [convId]);
 
   const { data: conversations } = useConversations();
   const { data: meResponse } = useMe();
@@ -117,9 +113,21 @@ export default function ChatPage() {
   } = useChatSocket({
     conversationIds,
     onNewMessage: (message, convId) => {
-      queryClient.setQueryData<any[]>(["messages", convId], (current = []) => {
-        if (current.some((existing) => existing.id === message.id)) return current;
-        return [...current, message];
+      queryClient.setQueryData<any>(["messages", convId], (current: any) => {
+        if (!current) return current;
+        const exists = current.pages.some((page: any[]) =>
+          page.some((m) => m.id === message.id)
+        );
+        if (exists) return current;
+
+        const newPages = [...current.pages];
+        const lastPageIdx = newPages.length - 1;
+        newPages[lastPageIdx] = [...newPages[lastPageIdx], message];
+
+        return {
+          ...current,
+          pages: newPages,
+        };
       });
 
       if (message.senderId !== myUserId) {
@@ -131,6 +139,30 @@ export default function ChatPage() {
       }
 
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onMessageEdited: ({ conversationId, message }) => {
+      queryClient.setQueryData<any>(["messages", conversationId], (current: any) => {
+        if (!current) return current;
+
+
+        return {
+          ...current,
+          pages: current.pages.map((page: any[]) =>
+            page.map((existing) => {
+              if (existing.id == message.id) {
+                return { ...existing, ...message };
+              }
+
+              if (existing.replyToId === message.id && existing.replyTo) {
+                return { ...existing, 
+                  replyTo: { ...existing.replyTo, ...message} 
+                };
+              }
+              return existing;
+            })
+          ),
+        };
+      });
     },
     onTypingStart: (payload) => {
       if (payload.userId === myUserId) return;
@@ -181,11 +213,17 @@ export default function ChatPage() {
       });
     },
     onMessageReaction: ({ conversationId, messageId, reactions }) => {
-      queryClient.setQueryData<any[]>(["messages", conversationId], (current = []) => {
-        return current.map((msg) => {
-          if (msg.id !== messageId) return msg;
-          return { ...msg, reactions };
-        });
+      queryClient.setQueryData<any>(["messages", conversationId], (current: any) => {
+        if (!current) return current;
+        return {
+          ...current,
+          pages: current.pages.map((page: any[]) =>
+            page.map((msg) => {
+              if (msg.id !== messageId) return msg;
+              return { ...msg, reactions };
+            })
+          ),
+        };
       });
     },
     onError: setSocketError,

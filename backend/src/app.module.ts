@@ -9,11 +9,12 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
 import { MessagesModule } from './modules/messages/message.module';
 import { SocketModule } from './socket/socket.module';
 import { FriendsModule } from './modules/friends/friends.module';
+import { CollectionsModule } from './modules/collections/collections.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal:true,
+      isGlobal: true,
     }),
 
     PrismaModule,
@@ -25,6 +26,7 @@ import { FriendsModule } from './modules/friends/friends.module';
     MessagesModule,
     SocketModule,
     FriendsModule,
-]
+    CollectionsModule,
+  ]
 })
-export class AppModule {}
+export class AppModule {}

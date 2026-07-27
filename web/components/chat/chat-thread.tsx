@@ -6,6 +6,7 @@ import ChatMessage from "./chat-message";
 import DateDivider, { getCalendarDateKey } from "./date-divider";
 import Lenis from "lenis";
 
+
 type Props = {
     messages: Message[];
     myUserId: string | null;
@@ -13,53 +14,67 @@ type Props = {
     isTyping?: boolean;
     otherParticipantLastReadAt?: string | null;
     sendReaction: (messageId: string, reaction: string) => void;
+    onReply: (message: Message) => void;
+    fetchNextPage: () => Promise<any>;
+    hasNextPage: boolean;
+    isFetchingNextPage: boolean;
+    onEdit: (message: Message) => void;
+    onDeleteForMe: (messageId: string) => void;
+    onDeleteForEveryone: (messageId: string) => void;
+    onHide: (messageId: string) => void;
 };
 
 export default function
 
-    ChatThread({ messages, myUserId, isLoading, isTyping, otherParticipantLastReadAt, sendReaction }: Props) {
+    ChatThread({
+        messages,
+        myUserId,
+        isLoading,
+        isTyping,
+        otherParticipantLastReadAt,
+        sendReaction,
+        onReply,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        onEdit,
+        onDeleteForMe,
+        onDeleteForEveryone,
+        onHide
+    }: Props) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
     const isFirstLoad = useRef(true);
     const prevMessagesLength = useRef(messages.length);
+    const prevLastMessageId = useRef<string | null>(null);
     const isNearBottomRef = useRef(true);
     const [unreadMessage, setUnreadMessage] = useState<Message | null>(null);
+    
 
-    const [wrapper, setWrapper] = useState<HTMLDivElement | null>(null);
-    const [content, setContent] = useState<HTMLDivElement | null>(null);
     const lenisRef = useRef<Lenis | null>(null);
-
-    const setWrapperRef = (el: HTMLDivElement | null) => {
-        containerRef.current = el;
-        setWrapper(el);
-    };
 
     // Initialize Lenis manually on the custom scroll container
     useEffect(() => {
+        const wrapper = containerRef.current;
+        const content = contentRef.current;
         if (!wrapper || !content) return;
 
         const lenis = new Lenis({
             wrapper,
             content,
             lerp: 0.1,
-            duration: 1.5,
+            duration: 1.2,
+            autoRaf: true,
         });
 
         lenisRef.current = lenis;
 
-        let rafId: number;
-        const raf = (time: number) => {
-            lenis.raf(time);
-            rafId = requestAnimationFrame(raf);
-        };
-        rafId = requestAnimationFrame(raf);
-
         return () => {
-            cancelAnimationFrame(rafId);
             lenis.destroy();
             lenisRef.current = null;
         };
-    }, [wrapper, content]);
+    }, []);
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         setTimeout(() => {
@@ -84,33 +99,78 @@ export default function
     // Scroll to bottom on initial load
     useEffect(() => {
         if (messages.length > 0 && isFirstLoad.current) {
-            scrollToBottom("instant");
+            // Check if jumping to a specific message
+            const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+            const msgId = params?.get("msgId");
+            if (msgId) {
+                setTimeout(() => {
+                    const el = document.getElementById(`msg-${msgId}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        el.classList.add("bg-accent/10");
+                        setTimeout(() => {
+                            el.classList.remove("bg-accent/10");
+                        }, 2000);
+                    }
+                }, 300);
+            } else {
+                scrollToBottom("instant");
+            }
             isFirstLoad.current = false;
+            prevLastMessageId.current = messages.at(-1)?.id ?? null;
         }
     }, [messages.length]);
 
     // Handle new messages and show scroll-to-bottom alert if scrolled up
     useEffect(() => {
-        if (messages.length > prevMessagesLength.current) {
+        if (messages.length > 0) {
             const lastMsg = messages.at(-1);
-            if (lastMsg) {
-                if (lastMsg.senderId === myUserId) {
-                    scrollToBottom("smooth");
-                } else {
-                    if (isNearBottomRef.current) {
+            if (lastMsg && lastMsg.id !== prevLastMessageId.current) {
+                if (!isFirstLoad.current) {
+                    if (lastMsg.senderId === myUserId) {
                         scrollToBottom("smooth");
                     } else {
-                        setUnreadMessage(lastMsg);
+                        if (isNearBottomRef.current) {
+                            scrollToBottom("smooth");
+                        } else {
+                            setUnreadMessage(lastMsg);
+                        }
                     }
                 }
+                prevLastMessageId.current = lastMsg.id;
             }
         }
         prevMessagesLength.current = messages.length;
     }, [messages, myUserId]);
 
-    // Monitor scroll events to dismiss the button if manually scrolled to bottom
+    // Monitor scroll events to dismiss the button if manually scrolled to bottom and handle pagination
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const target = e.currentTarget;
+
+        // If scrolled near the top and there is another page, load it
+        if (target.scrollTop <= 80 && hasNextPage && !isFetchingNextPage) {
+            const oldScrollHeight = target.scrollHeight;
+            const oldScrollTop = target.scrollTop;
+
+            fetchNextPage().then(() => {
+                requestAnimationFrame(() => {
+                    if (containerRef.current) {
+                        const newScrollHeight = containerRef.current.scrollHeight;
+                        const heightDifference = newScrollHeight - oldScrollHeight;
+
+                        if (lenisRef.current) {
+                            lenisRef.current.resize();
+                            lenisRef.current.scrollTo(oldScrollTop + heightDifference, {
+                                immediate: true,
+                            });
+                        } else {
+                            containerRef.current.scrollTop = oldScrollTop + heightDifference;
+                        }
+                    }
+                });
+            });
+        }
+
         const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 150;
         isNearBottomRef.current = isAtBottom;
         if (isAtBottom) {
@@ -128,8 +188,13 @@ export default function
 
     return (
         <div className="relative flex-1 flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto overflow-x-hidden" ref={setWrapperRef} onScroll={handleScroll}>
-                <div className="mx-auto flex max-w-[820px] flex-col px-6 pb-8 pt-6" ref={setContent}>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden transform translate-z-0" ref={containerRef} onScroll={handleScroll}>
+                <div className="mx-auto flex max-w-[820px] flex-col px-6 pb-8 pt-6" ref={contentRef}>
+                    {isFetchingNextPage && (
+                        <div className="flex items-center justify-center py-2 shrink-0 animate-fade-in">
+                            <div className="h-4 w-4 animate-spin rounded-full border-[1.5px] border-white/10 border-t-muted-foreground" />
+                        </div>
+                    )}
                     {messages.length === 0 ? (
                         <div className="py-8 text-center text-[13px] text-muted-foreground">
                             No messages yet — say hello 👋
@@ -163,6 +228,11 @@ export default function
                                         isRead={isRead}
                                         myUserId={myUserId}
                                         sendReaction={sendReaction}
+                                        onReply={onReply}
+                                        onEdit={onEdit}
+                                        onDeleteForMe={onDeleteForMe}
+                                        onDeleteForEveryone={onDeleteForEveryone}
+                                        onHide={onHide}
                                     />
                                 </React.Fragment>
                             );
@@ -205,4 +275,3 @@ export default function
         </div>
     );
 }
-

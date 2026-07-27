@@ -21,4 +21,10 @@ export type UseChatSocketOptions = {
     onUserPresence?: (payload: { userId: string; isOnline: boolean; lastSeen: string | null }) => void;
     onMessageReaction?: (payload: { conversationId: string; messageId: string; reactions: MessageReaction[] }) => void;
     onError?: (message: string) => void;
+    onMessageEdited?: (payload: MessageEditPayload) => void;
+};
+
+export type MessageEditPayload = {
+    conversationId: string;
+    message: Pick<Message, "id" | "content" | "editedAt">;
 };

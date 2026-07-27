@@ -46,13 +46,13 @@ export function playSound(type: "sent" | "received") {
                 sharedCtx = new AudioContextClass();
             }
         }
-        
+
         const ctx = sharedCtx;
         if (!ctx) return;
 
         // Try to resume the context if it's currently suspended
         if (ctx.state === "suspended") {
-            ctx.resume().catch(() => {});
+            ctx.resume().catch(() => { });
         }
 
         const now = ctx.currentTime;
@@ -91,7 +91,7 @@ export function playSound(type: "sent" | "received") {
             gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
 
             osc1.start(now);
-            osc1.stop(now + 0.06);
+            osc1.stop(now + 0.08);
 
             // Chirp 2 (slightly higher, delayed)
             const osc2 = ctx.createOscillator();

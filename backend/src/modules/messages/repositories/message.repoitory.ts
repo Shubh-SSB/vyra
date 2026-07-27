@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Message, Prisma, ReactionType } from "@prisma/client";
+import { Prisma, ReactionType } from "@prisma/client";
 import { PrismaService } from "../../../prisma/prisma.service";
 
 @Injectable()
@@ -19,6 +19,17 @@ export class MessageRepository {
                         id: true,
                         username: true,
                         displayName: true,
+                    },
+                },
+                replyTo: {
+                    include: {
+                        sender: {
+                            select: {
+                                id: true,
+                                username: true,
+                                displayName: true,
+                            },
+                        },
                     },
                 },
             },
@@ -48,17 +59,35 @@ export class MessageRepository {
 
     async findConversationMessages(
         conversationId: string,
+        userId: string,
+        cursor?: string,
+        limit: number = 40,
     ) {
-        return this.prisma.message.findMany({
+        const queryOptions: Prisma.MessageFindManyArgs = {
             where: {
                 conversationId,
+            hiddenBy: {
+                none: { userId },
             },
+        },
+
             include: {
                 sender: {
                     select: {
                         id: true,
                         username: true,
                         displayName: true,
+                    },
+                },
+                replyTo: {
+                    include: {
+                        sender: {
+                            select: {
+                                id: true,
+                                username: true,
+                                displayName: true,
+                            },
+                        },
                     },
                 },
                 reactions: {
@@ -72,20 +101,55 @@ export class MessageRepository {
                         },
                     },
                 },
+                savedIn: {
+                    where: {
+                        collection: {
+                            userId,
+                        },
+                    },
+                    select: {
+                        collectionId: true,
+                    },
+                },
             },
+            take: limit,
             orderBy: {
-                createdAt: "asc",
+                createdAt: "desc",
             },
-        });
+        };
+
+        if (cursor) {
+            queryOptions.cursor = { id: cursor };
+            queryOptions.skip = 1;
+        }
+
+        const messages = await this.prisma.message.findMany(queryOptions);
+        return messages.reverse();
     }
 
     async update(
         id: string,
-        data: Prisma.MessageUpdateInput,
+        content: string,
     ) {
         return this.prisma.message.update({
             where: { id },
-            data,
+            data: {
+                content,
+                editedAt: new Date(),
+            },
+            select: {
+                        id: true,
+                        conversationId: true,
+                        content: true,
+                        editedAt: true,
+                        sender: {
+                            select: {
+                                id:true,
+                                username: true,
+                                displayName: true,
+                            }
+                        }
+                    },
         });
     }
 
@@ -143,6 +207,32 @@ export class MessageRepository {
         });
     }
 
+    async findHiddenMessages(userId: string) {
+        const hides = await this.prisma.messageHide.findMany({
+            where: { userId },
+            include: {
+                message: {
+                    include: {
+                        sender: {
+                            select: { id: true, username: true, displayName: true, avatarUrl: true },
+                        },
+                        conversation: {
+                            select: { id: true, type: true },
+                        },
+                    },
+                },
+            },
+            orderBy: { hiddenAt: 'desc' },
+        });
+        return hides.map((h) => ({ ...h.message, hiddenAt: h.hiddenAt }));
+    }
+
+    async unhideForMe(messageId: string, userId: string) {
+        return this.prisma.messageHide.delete({
+            where: { messageId_userId: { messageId, userId } },
+        });
+    }
+
     async findMessageReactions(messageId: string) {
         return this.prisma.messageReaction.findMany({
             where: {
@@ -158,5 +248,43 @@ export class MessageRepository {
                 },
             },
         });
+    }
+
+    async softDeleteForMe(messageId: string, userId: string) {
+        return this.prisma.message.update({
+            where: { id: messageId },
+            data: {
+                deletedAt: new Date(),
+                deleteById: userId,
+            },
+            select: { id: true, conversationId: true, deletedAt: true, deleteById: true },
+        })
+    }
+
+    async softDeleteForEveryone(messageId: string, deletedById: string) {
+        return this.prisma.message.update({
+            where: { id: messageId },
+            data: {
+                deletedAt: new Date(),
+                deleteById: deletedById,
+                content: 'This message is no longer available.',
+            },
+            select: { id: true, conversationId: true, deletedAt: true, deleteById: true },
+        })
+    }
+
+    async hideForMe(messageId: string, userId: string) {
+        return this.prisma.messageHide.upsert({
+            where: { messageId_userId: { messageId, userId } },
+            create: { messageId, userId },
+            update: { messageId, userId },
+        })
+    }
+
+    async isHiddenByUser(messageId: string, userId: string): Promise<boolean> {
+        const record = await this.prisma.messageHide.findUnique({
+            where: { messageId_userId: { messageId, userId } },
+        });
+        return !!record;
     }
 }

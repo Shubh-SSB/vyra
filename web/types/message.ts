@@ -22,4 +22,12 @@ export type Message = {
     updatedAt?: string;
     editedAt?: string | null;
     deletedAt?: string | null;
+    sender?: {
+        id: string;
+        username: string;
+        displayName: string;
+    };
+    replyToId?: string | null;
+    replyTo?: Message | null;
+    savedIn?: { collectionId: string }[];
 };

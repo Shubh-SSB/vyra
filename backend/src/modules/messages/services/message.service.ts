@@ -13,12 +13,32 @@ export class MessagesService {
     constructor(
         private readonly messageRepository: MessageRepository,
         private readonly conversationRepository: ConversationRepository,
-    ) {}
+    ) { }
+
+    private async validateReplyMessage(
+        replyToId: string,
+        conversationId: string,
+    ) {
+        const replyMessage = await this.messageRepository.findById(replyToId);
+
+        if (!replyMessage) {
+            throw new NotFoundException(
+                "Reply message not found",
+            )
+        }
+
+        if (replyMessage.conversationId !== conversationId) {
+            throw new BadRequestException(
+                "Reply message does not belong to the same conversation",
+            )
+        }
+    }
 
     async sendMessage(
         senderId: string,
         conversationId: string,
         content: string,
+        replyToId?: string
     ) {
 
         content = content.trim();
@@ -44,8 +64,8 @@ export class MessagesService {
             throw new NotFoundException(
                 "Conversation not found",
             );
-        } 
-        
+        }
+
         const isParticipant =
             await this.conversationRepository.isParticipant(
                 conversationId,
@@ -58,9 +78,16 @@ export class MessagesService {
             );
         }
 
+        if (replyToId) {
+            await this.validateReplyMessage(replyToId, conversationId);
+        }
+
+
+
         const message =
             await this.messageRepository.create({
                 content,
+                replyTo: replyToId ? { connect: { id: replyToId } } : undefined,
                 sender: {
                     connect: {
                         id: senderId,
@@ -89,6 +116,8 @@ export class MessagesService {
     async getConversationMessages(
         userId: string,
         conversationId: string,
+        cursor?: string,
+        limit?: number,
     ) {
         const isParticipant =
             await this.conversationRepository.isParticipant(
@@ -104,6 +133,9 @@ export class MessagesService {
 
         return this.messageRepository.findConversationMessages(
             conversationId,
+            userId,
+            cursor,
+            limit,
         );
     }
 
@@ -142,7 +174,7 @@ export class MessagesService {
         if (existingReaction) {
             const isSame = isStandard
                 ? existingReaction.reaction === reactionType
-                : existingReaction.reaction === ReactionType.CUSTOM && existingReaction.customEmoji === customEmoji;
+                : existingReaction.reaction === ReactionType.CUSTOM && existingReaction?.customEmoji === customEmoji;
 
             if (isSame) {
                 // If it is the same reaction, toggle it off (delete it)
@@ -164,5 +196,137 @@ export class MessagesService {
             conversationId: message.conversationId,
             reactions: updatedReactions,
         };
+    }
+
+    async editMessage(
+        userId: string,
+        messageId: string,
+        content: string,
+    ) {
+        const message = await this.messageRepository.findById(messageId);
+        const messageEditWindow = 15 * 60 * 1000;
+
+
+        if (!message) {
+            throw new NotFoundException("Message not found");
+        }
+
+        if (message.senderId !== userId) {
+            throw new ForbiddenException(
+                "You can only edit your messages",
+            );
+        }
+
+        if (message.deletedAt) {
+            throw new BadRequestException(
+                "You cannot edit a deleted message",
+            );
+        }
+
+        if (Date.now() > message.createdAt.getTime() + messageEditWindow) {
+            throw new BadRequestException(
+                "You can only edit messages within 15 minutes of sending them",
+            );
+        }
+
+        const trimmedContent = content.trim();
+
+        if (!trimmedContent) {
+            throw new BadRequestException(
+                "Message content cannot be empty",
+            );
+        }
+
+        if (trimmedContent.length > 4000) {
+            throw new BadRequestException(
+                "Message content cannot exceed 4000 characters",
+            );
+        }
+
+        return this.messageRepository.update(messageId, trimmedContent);
+    }
+
+
+    async getHiddenMessages(userId: string) {
+        return this.messageRepository.findHiddenMessages(userId);
+    }
+
+    async unhideMessage(userId: string, messageId: string) {
+        // verify the message exists
+        const message = await this.messageRepository.findById(messageId);
+        if (!message) throw new NotFoundException('Message not found');
+        return this.messageRepository.unhideForMe(messageId, userId);
+    }
+
+    async deleteForMe(userId: string, messageId: string) {
+        const message = await this.messageRepository.findById(messageId);
+
+        if (!message) throw new NotFoundException("Message not found");
+
+        const isParticipant = await this.conversationRepository.isParticipant(
+            message.conversationId,
+            userId,
+        )
+
+        if (!isParticipant) throw new ForbiddenException(
+            "You are not a participant of this conversation",
+        );
+
+        const result = await this.messageRepository.softDeleteForMe(messageId, userId);
+
+        return {
+            ...result,
+            conversationId: message.conversationId,
+            deleteType: "FOR_ME",
+        }
+    }
+
+    async deleteForEveryone(userId: string, messageId: string) {
+        const message = await this.messageRepository.findById(messageId);
+
+        if (!message) throw new NotFoundException("Message not found");
+
+        if (message.senderId !== userId) {
+            throw new ForbiddenException(
+                "You can only delete your own messages for everyone",
+            );
+        }
+
+        if (message.deletedAt) {
+            throw new BadRequestException(
+                "This message has already been deleted for everyone",
+            );
+        }
+
+        const result = await this.messageRepository.softDeleteForEveryone(messageId, userId);
+
+        return {
+            ...result,
+            conversationId: message.conversationId,
+            deleteType: "FOR_EVERYONE" as const,
+        }
+    }
+
+    async hideMessage(userId: string, messageId: string) {
+        const message = await this.messageRepository.findById(messageId);
+
+        if (!message) throw new NotFoundException("Message not found");
+
+        const isParticipant = await this.conversationRepository.isParticipant(
+            message.conversationId,
+            userId,
+        )
+
+        if (!isParticipant) throw new ForbiddenException(
+            "You are not a participant of this conversation",
+        );
+
+        await this.messageRepository.hideForMe(messageId, userId);
+
+        return {
+            messageId,
+            conversationId: message.conversationId,
+            hidden: true,
+        }
     }
 }
