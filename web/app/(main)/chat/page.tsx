@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -60,7 +60,7 @@ function getMyUserId(): string | null {
   }
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -154,8 +154,9 @@ export default function ChatPage() {
               }
 
               if (existing.replyToId === message.id && existing.replyTo) {
-                return { ...existing, 
-                  replyTo: { ...existing.replyTo, ...message} 
+                return {
+                  ...existing,
+                  replyTo: { ...existing.replyTo, ...message }
                 };
               }
               return existing;
@@ -304,169 +305,182 @@ export default function ChatPage() {
 
   return (
     <div className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-background text-foreground md:static md:h-screen">
-
-
-      <aside
-        className={cn(
-          "md:flex md:w-[320px] md:shrink-0 md:flex-col md:border-r md:rounded-tr-2xl md:border-border md:bg-surface-secondary",
-          mobileView === "list"
-            ? "flex w-full flex-col bg-surface-secondary md:w-[320px]"
-            : "hidden",
-        )}
-      >
-        {/* Mobile Top Bar */}
-        <div className="flex h-14 items-center justify-between border-b border-border bg-[#0e0e10]/80 backdrop-blur-md px-5 md:hidden shrink-0">
-          <VyraWordmark />
-          <Link
-            href="/settings"
-            title="Settings"
-            aria-label="Settings"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
-          >
-            <Settings className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
-        </div>
-
-        <div className="px-5 pt-5">
-          <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
-            <button
-              onClick={() => setSidebarTab("chats")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-md font-medium transition-colors",
-                sidebarTab === "chats"
-                  ? "bg-surface-elevated text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
+        <aside
+          className={cn(
+            "md:flex md:w-[320px] md:shrink-0 md:flex-col md:border-r md:rounded-tr-2xl md:border-border md:bg-surface-secondary",
+            mobileView === "list"
+              ? "flex w-full flex-col bg-surface-secondary md:w-[320px]"
+              : "hidden",
+          )}
+        >
+          {/* Mobile Top Bar */}
+          <div className="flex h-14 items-center justify-between border-b border-border bg-[#0e0e10]/80 backdrop-blur-md px-5 md:hidden shrink-0">
+            <VyraWordmark />
+            <Link
+              href="/settings"
+              title="Settings"
+              aria-label="Settings"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
             >
-              <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Chats
-            </button>
-            <button
-              onClick={() => setSidebarTab("connections")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-md font-medium transition-colors",
-                sidebarTab === "connections"
-                  ? "bg-surface-elevated text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Connections
-            </button>
+              <Settings className="h-4 w-4" strokeWidth={1.75} />
+            </Link>
           </div>
-        </div>
 
-        {sidebarTab === "chats" && (
-          <>
-            <div className="px-5 pt-4">
-              <div className="mb-4 flex items-center justify-between">
-                <h1 className="font-display text-[20px] font-semibold tracking-tight">Inbox</h1>
-                <div className="flex items-center gap-1">
-                  <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground">
-                    <Plus className="h-4 w-4" strokeWidth={1.75} />
-                  </button>
+          <div className="px-5 pt-5">
+            <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
+              <button
+                onClick={() => setSidebarTab("chats")}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-md font-medium transition-colors",
+                  sidebarTab === "chats"
+                    ? "bg-surface-elevated text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Chats
+              </button>
+              <button
+                onClick={() => setSidebarTab("connections")}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-md font-medium transition-colors",
+                  sidebarTab === "connections"
+                    ? "bg-surface-elevated text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Connections
+              </button>
+            </div>
+          </div>
+
+          {sidebarTab === "chats" && (
+            <>
+              <div className="px-5 pt-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <h1 className="font-display text-[20px] font-semibold tracking-tight">Inbox</h1>
+                  <div className="flex items-center gap-1">
+                    <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground">
+                      <Plus className="h-4 w-4" strokeWidth={1.75} />
+                    </button>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                    strokeWidth={1.75}
+                  />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search conversations"
+                    className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-4 text-[13px] font-medium text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+                  />
                 </div>
               </div>
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-                  strokeWidth={1.75}
-                />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search conversations"
-                  className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-4 text-[13px] font-medium text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
+              <div className="mt-4 flex-1 overflow-y-auto px-3 pb-6">
+                <ChatList
+                  activeId={activeId ?? undefined}
+                  onSelect={(conv) => selectConversation(conv.id)}
+                  typingConversations={typingConversations}
                 />
               </div>
-            </div>
-            <div className="mt-4 flex-1 overflow-y-auto px-3 pb-6">
-              <ChatList
-                activeId={activeId ?? undefined}
-                onSelect={(conv) => selectConversation(conv.id)}
-                typingConversations={typingConversations}
-              />
-            </div>
-          </>
-        )}
+            </>
+          )}
 
-        {sidebarTab === "connections" && (
-          <SearchInput
-            onMessage={(user) => {
-              handleMessage({
-                id: user.id,
-                name: user.displayName,
-                username: user.username,
-                bio: user.bio || "",
-                mutualCount: 0,
-                online: false,
-                isPublic: user.profileVisibility !== "PRIVATE",
-                joinedDate: "now",
-                connectionsCount: 0,
-                tags: [],
-                accentColor: "oklch(0.65 0.18 280)",
-              });
-            }}
-          />
-        )}
-      </aside>
-      <ChatArea
-        conversationId={activeId}
-        mobileView={mobileView}
-        goBackToList={goBackToList}
-        typingConversations={typingConversations}
-        connectionStatus={connectionStatus}
-        socketError={socketError}
-        setSocketError={setSocketError}
-        sendMessage={sendMessage}
-        sendTypingStart={sendTypingStart}
-        sendTypingStop={sendTypingStop}
-        sendReaction={sendReaction}
-        onToggleProfile={() => {
-          if (profileOpen) {
-            closeProfile();
-          } else {
-            openProfile();
-          }
-        }}
-        myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
-      />
-      <AnimatePresence>
-        {profileOpen && activeId && (
-          <>
-            {/* PC Side Panel Drawer */}
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 380, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 180, damping: 22 }}
-              className="hidden lg:block lg:shrink-0 h-full overflow-hidden border-l border-border bg-background"
-            >
-              <div className="w-[380px] h-full">
+          {sidebarTab === "connections" && (
+            <SearchInput
+              onMessage={(user) => {
+                handleMessage({
+                  id: user.id,
+                  name: user.displayName,
+                  username: user.username,
+                  bio: user.bio || "",
+                  mutualCount: 0,
+                  online: false,
+                  isPublic: user.profileVisibility !== "PRIVATE",
+                  joinedDate: "now",
+                  connectionsCount: 0,
+                  tags: [],
+                  accentColor: "oklch(0.65 0.18 280)",
+                });
+              }}
+            />
+          )}
+        </aside>
+        <ChatArea
+          conversationId={activeId}
+          mobileView={mobileView}
+          goBackToList={goBackToList}
+          typingConversations={typingConversations}
+          connectionStatus={connectionStatus}
+          socketError={socketError}
+          setSocketError={setSocketError}
+          sendMessage={sendMessage}
+          sendTypingStart={sendTypingStart}
+          sendTypingStop={sendTypingStop}
+          sendReaction={sendReaction}
+          onToggleProfile={() => {
+            if (profileOpen) {
+              closeProfile();
+            } else {
+              openProfile();
+            }
+          }}
+          myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
+        />
+        <AnimatePresence>
+          {profileOpen && activeId && (
+            <>
+              {/* PC Side Panel Drawer */}
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 380, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 180, damping: 22 }}
+                className="hidden lg:block lg:shrink-0 h-full overflow-hidden border-l border-border bg-background"
+              >
+                <div className="w-[380px] h-full">
+                  <UserProfile
+                    user={otherUser}
+                    onClose={closeProfile}
+                    onMessageClick={closeProfile}
+                  />
+                </div>
+              </motion.div>
+              {/* Mobile Fullscreen Overlay */}
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", stiffness: 180, damping: 22 }}
+                className="fixed inset-0 z-50 lg:hidden w-full h-full"
+              >
                 <UserProfile
                   user={otherUser}
                   onClose={closeProfile}
                   onMessageClick={closeProfile}
                 />
-              </div>
-            </motion.div>
-            {/* Mobile Fullscreen Overlay */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 180, damping: 22 }}
-              className="fixed inset-0 z-50 lg:hidden w-full h-full"
-            >
-              <UserProfile
-                user={otherUser}
-                onClose={closeProfile}
-                onMessageClick={closeProfile}
-              />
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-svh items-center justify-center bg-[#09090b] text-foreground font-geist">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-white" />
+          <p className="text-xs tracking-widest uppercase text-muted-foreground animate-pulse font-semibold">Loading Chat...</p>
+        </div>
+      </main>
+    }>
+      <ChatPageContent />
+    </Suspense>
   );
 }
