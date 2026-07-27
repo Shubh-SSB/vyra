@@ -30,19 +30,22 @@ export class MessagesController {
         private readonly messagesService: MessagesService,
         @Inject(forwardRef(() => ChatGateway))
         private readonly chatGateway: ChatGateway,
-    ) {}
+    ) { }
 
     @Post()
     async sendMessage(
         @Req() req,
         @Body() dto: SendMessageDto,
     ) {
+        const attachmentIds = dto.attachments?.map((att) => att.id);
         const message =
             await this.messagesService.sendMessage(
                 req.user.id,
                 dto.conversationId,
                 dto.content,
-                dto.replyToId
+                dto.replyToId,
+                dto.type,
+                attachmentIds,
             );
 
         return ApiResponseUtil.success(
@@ -152,7 +155,7 @@ export class MessagesController {
         @Req() req,
         @Param("messageId") messageId: string,
         @Body() dto: EditMessageDto,
-    ){
+    ) {
         const message = await this.messagesService.editMessage(
             req.user.id,
             messageId,

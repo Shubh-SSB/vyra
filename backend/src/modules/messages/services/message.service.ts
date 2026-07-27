@@ -4,15 +4,17 @@ import {
     NotFoundException,
     BadRequestException,
 } from "@nestjs/common";
-import { ReactionType } from "@prisma/client";
+import { ReactionType, MessageType, AttachmentStatus } from "@prisma/client";
 import { ConversationRepository } from "../../conversations/repositories/conversation.repository";
 import { MessageRepository } from "../repositories/message.repoitory";
+import { PrismaService } from "../../../prisma/prisma.service";
 
 @Injectable()
 export class MessagesService {
     constructor(
         private readonly messageRepository: MessageRepository,
         private readonly conversationRepository: ConversationRepository,
+        private readonly prisma: PrismaService,
     ) { }
 
     private async validateReplyMessage(
@@ -37,19 +39,21 @@ export class MessagesService {
     async sendMessage(
         senderId: string,
         conversationId: string,
-        content: string,
-        replyToId?: string
+        content?: string,
+        replyToId?: string,
+        type: MessageType = MessageType.TEXT,
+        attachmentIds?: string[],
     ) {
 
-        content = content.trim();
+        const trimmedContent = (content || "").trim();
 
-        if (content.length === 0) {
+        if (type === MessageType.TEXT && trimmedContent.length === 0) {
             throw new BadRequestException(
                 "Message content cannot be empty",
             );
         }
 
-        if (content.length > 4000) {
+        if (trimmedContent.length > 4000) {
             throw new BadRequestException(
                 "Message content cannot exceed 4000 characters",
             );
@@ -82,11 +86,10 @@ export class MessagesService {
             await this.validateReplyMessage(replyToId, conversationId);
         }
 
-
-
-        const message =
-            await this.messageRepository.create({
-                content,
+        const message = await this.prisma.$transaction(async (tx) => {
+            const msg = await this.messageRepository.create({
+                content: trimmedContent || null,
+                type,
                 replyTo: replyToId ? { connect: { id: replyToId } } : undefined,
                 sender: {
                     connect: {
@@ -98,7 +101,46 @@ export class MessagesService {
                         id: conversationId,
                     },
                 },
+            }, tx);
+
+            if (attachmentIds && attachmentIds.length > 0) {
+                await tx.attachment.updateMany({
+                    where: {
+                        id: { in: attachmentIds },
+                    },
+                    data: {
+                        messageId: msg.id,
+                        status: AttachmentStatus.ACTIVE,
+                    },
+                });
+            }
+
+            return tx.message.findUniqueOrThrow({
+                where: { id: msg.id },
+                include: {
+                    attachments: true,
+                    sender: {
+                        select: {
+                            id: true,
+                            username: true,
+                            displayName: true,
+                            avatarUrl: true,
+                        },
+                    },
+                    replyTo: {
+                        include: {
+                            sender: {
+                                select: {
+                                    id: true,
+                                    username: true,
+                                    displayName: true,
+                                },
+                            },
+                        },
+                    },
+                },
             });
+        });
 
         await this.conversationRepository.updateLastMessageAt(
             conversationId,
@@ -360,6 +402,15 @@ export class MessagesService {
                     senderId,
                     conversationId: convId,
                     forwardedFromId: original.id,
+                    type: original.type,
+                    attachments: original.attachments.map(att => ({
+                        type: att.type,
+                        mimeType: att.mimeType,
+                        size: att.size,
+                        storageKey: att.storageKey,
+                        fileUrl: att.fileUrl,
+                        metadata: att.metadata,
+                    })),
                 });
                 forwarded.push({ ...msg, conversationId: convId });
                 await this.conversationRepository.updateLastMessageAt(convId);

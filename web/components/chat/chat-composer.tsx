@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Paperclip, Send, Sparkles, X } from "lucide-react";
+import { Paperclip, Send, Sparkles, X, Mic, Trash2 } from "lucide-react";
 import { Message } from "@/types/message";
+import { useAudioRecorder } from "@/hooks/use-audio-recorder";
+import { api } from "@/lib/axios";
+import { useSnackbar } from "notistack";
+import LiveWaveform from "./live-waveform";
 
 type Props = {
-    onSend: (content: string) => void;
+    onSend: (content: string, type?: "TEXT" | "VOICE", attachments?: { id: string }[]) => void;
     disabled?: boolean;
     onTypingStart?: () => void;
     onTypingStop?: () => void;
@@ -33,11 +37,88 @@ export default function ChatComposer({
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isTypingRef = useRef(false);
 
+    const { enqueueSnackbar } = useSnackbar();
+    const { isRecording, duration, error: recorderError, stream, startRecording, stopRecording, cancelRecording } = useAudioRecorder();
+    const [isUploading, setIsUploading] = useState(false);
+
+    const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    };
+
+    const handleStartRecording = async () => {
+        try {
+            await startRecording();
+        } catch (err: any) {
+            enqueueSnackbar(err.message || "Failed to start recording. Please check microphone permissions.", {
+                variant: "error",
+            });
+        }
+    };
+
+    const handleSendVoice = async () => {
+        setIsUploading(true);
+        try {
+            const { blob, duration: voiceDuration } = await stopRecording();
+            if (voiceDuration < 1) {
+                return;
+            }
+
+            const mimeType = blob.type.split(";")[0] || "audio/webm";
+            const extension = mimeType.split("/")[1] || "webm";
+            const fileName = `voice-note-${Date.now()}.${extension}`;
+
+            // 1. Get Presigned URL
+            const response = await api.post("/attachments/presigned-url", {
+                fileName,
+                contentType: mimeType,
+            });
+
+            const { uploadUrl, fileUrl } = response.data.data;
+            const publicUrlBase = fileUrl.split("/voicenotes/")[0];
+            const storageKey = fileUrl.replace(`${publicUrlBase}/`, "");
+
+            // 2. Upload file directly to object store
+            await fetch(uploadUrl, {
+                method: "PUT",
+                body: blob,
+                headers: {
+                    "Content-Type": mimeType,
+                },
+            });
+
+            // 3. Mark upload as completed in DB
+            const completeResponse = await api.post("/attachments/complete", {
+                type: "VOICE",
+                mimeType,
+                size: blob.size,
+                storageKey,
+                fileUrl,
+                metadata: {
+                    duration: voiceDuration,
+                },
+            });
+
+            const attachment = completeResponse.data.data;
+
+            // 4. Dispatch sendMessage socket event
+            onSend("", "VOICE", [{ id: attachment.id }]);
+        } catch (err) {
+            console.error("Failed to send voice message", err);
+            enqueueSnackbar("Failed to send voice message. Please try again.", {
+                variant: "error",
+            });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     // Prefill and focus the input when editing a message.
     useEffect(() => {
         if (!editingMessage || !textareaRef.current) return;
 
-        setValue(editingMessage.content);
+        setValue(editingMessage.content ?? "");
 
         requestAnimationFrame(() => {
             const textarea = textareaRef.current;
@@ -181,42 +262,96 @@ export default function ChatComposer({
                         </button>
                     </div>
                 )}
-                
-                <div className="flex w-full items-end gap-2">
-                    <button
-                    type="button"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
-                >
-                    <Paperclip className="h-4 w-4" strokeWidth={1.5} />
-                </button>
 
-                <textarea
-                    ref={textareaRef}
-                    value={value}
-                    onChange={handleChange}
-                    onKeyDown={handleKeyDown}
-                    rows={1}
-                    placeholder={editingMessage ? "Edit message…" : "Message…"}
-                    disabled={disabled || isSavingEdit}
-                    className="max-h-40 min-h-[32px] flex-1 resize-none bg-transparent px-1 py-1.5 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-40"
-                />
+                {isRecording ? (
+                    <div className="flex w-full items-center justify-between gap-4 px-2 py-1 bg-surface-elevated/40 rounded-xl border border-white/[0.02] animate-fade-in">
+                        <div className="flex items-center gap-3">
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                            </span>
+                            <span className="text-[13px] font-medium text-foreground">
+                                {isUploading ? "Sending voice note..." : "Recording voice..."}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-mono bg-white/5 px-2 py-0.5 rounded border border-white/[0.04]">
+                                {formatDuration(duration)}
+                            </span>
+                        </div>
+                        {!isUploading && stream && (
+                            <div className="flex-1 flex justify-center px-4 overflow-hidden">
+                                <LiveWaveform stream={stream} />
+                            </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={cancelRecording}
+                                disabled={isUploading}
+                                className="flex h-8 px-3 items-center gap-1.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all cursor-pointer text-xs font-semibold"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSendVoice}
+                                disabled={isUploading}
+                                className="flex h-8 px-3.5 items-center gap-1.5 rounded-lg bg-foreground text-background hover:opacity-90 active:scale-95 transition-all cursor-pointer text-xs font-semibold shadow-md disabled:opacity-40 disabled:scale-100"
+                            >
+                                <Send className="h-3.5 w-3.5" strokeWidth={2} />
+                                {isUploading ? "Sending..." : "Send"}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex w-full items-end gap-2">
+                        <button
+                            type="button"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
+                        >
+                            <Paperclip className="h-4 w-4" strokeWidth={1.5} />
+                        </button>
 
-                <button
-                    type="button"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
-                >
-                    <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-                </button>
+                        <textarea
+                            ref={textareaRef}
+                            value={value}
+                            onChange={handleChange}
+                            onKeyDown={handleKeyDown}
+                            rows={1}
+                            placeholder={editingMessage ? "Edit message…" : "Message…"}
+                            disabled={disabled || isSavingEdit}
+                            className="max-h-40 min-h-[32px] flex-1 resize-none bg-transparent px-1 py-1.5 text-[14px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-40"
+                        />
 
-                <button
-                    type="button"
-                    disabled={!value.trim() || disabled || isSavingEdit}
-                    onClick={submit}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-background transition-opacity disabled:opacity-30"
-                >
-                    <Send className="h-3.5 w-3.5" strokeWidth={2} />
-                </button>
-            </div>
+                        <button
+                            type="button"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
+                        >
+                            <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                        </button>
+
+                        {value.trim() || editingMessage ? (
+                            <button
+                                type="button"
+                                disabled={!value.trim() || disabled || isSavingEdit}
+                                onClick={submit}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-background transition-opacity disabled:opacity-30"
+                            >
+                                <Send className="h-3.5 w-3.5" strokeWidth={2} />
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                disabled={disabled}
+                                onClick={handleStartRecording}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground cursor-pointer"
+                                aria-label="Record voice note"
+                            >
+                                <Mic className="h-4 w-4" strokeWidth={1.5} />
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             <p className="mx-auto mt-2 max-w-[820px] px-1 text-[11px] text-muted-foreground">

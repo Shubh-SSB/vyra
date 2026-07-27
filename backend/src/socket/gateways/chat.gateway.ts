@@ -174,12 +174,15 @@ export class ChatGateway
         @MessageBody() body: SendMessageDto,
     ) {
        try {
+        const attachmentIds = body.attachments?.map((att) => att.id);
         const message = 
        await this.messageService.sendMessage(
             client.data.user.id,
             body.conversationId,
             body.content,
             body.replyToId,
+            body.type,
+            attachmentIds,
         ); 
 
         this.server.to(body.conversationId).emit("newMessage", {
@@ -375,7 +378,7 @@ export class ChatGateway
         conversationId: string,
         message: {
             id: string;
-            content: string;
+            content: string | null;
             editedAt: Date | null;
         },
     ) {

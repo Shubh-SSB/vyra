@@ -1,24 +1,28 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma, ReactionType } from "@prisma/client";
+import { Prisma, ReactionType, MessageType, AttachmentType, AttachmentStatus } from "@prisma/client";
 import { PrismaService } from "../../../prisma/prisma.service";
 
 @Injectable()
 export class MessageRepository {
     constructor(
         private readonly prisma: PrismaService,
-    ) {}
+    ) { }
 
     async create(
         data: Prisma.MessageCreateInput,
+        tx?: Prisma.TransactionClient,
     ) {
-        return this.prisma.message.create({
+        const client = tx || this.prisma;
+        return client.message.create({
             data,
             include: {
+                attachments: true,
                 sender: {
                     select: {
                         id: true,
                         username: true,
                         displayName: true,
+                        avatarUrl: true,
                     },
                 },
                 replyTo: {
@@ -66,17 +70,19 @@ export class MessageRepository {
         const queryOptions: Prisma.MessageFindManyArgs = {
             where: {
                 conversationId,
-            hiddenBy: {
-                none: { userId },
+                hiddenBy: {
+                    none: { userId },
+                },
             },
-        },
 
             include: {
+                attachments: true,
                 sender: {
                     select: {
                         id: true,
                         username: true,
                         displayName: true,
+                        avatarUrl: true,
                     },
                 },
                 replyTo: {
@@ -138,18 +144,18 @@ export class MessageRepository {
                 editedAt: new Date(),
             },
             select: {
+                id: true,
+                conversationId: true,
+                content: true,
+                editedAt: true,
+                sender: {
+                    select: {
                         id: true,
-                        conversationId: true,
-                        content: true,
-                        editedAt: true,
-                        sender: {
-                            select: {
-                                id:true,
-                                username: true,
-                                displayName: true,
-                            }
-                        }
-                    },
+                        username: true,
+                        displayName: true,
+                    }
+                }
+            },
         });
     }
 
@@ -213,6 +219,7 @@ export class MessageRepository {
             include: {
                 message: {
                     include: {
+                        attachments: true,
                         sender: {
                             select: { id: true, username: true, displayName: true, avatarUrl: true },
                         },
@@ -289,10 +296,19 @@ export class MessageRepository {
     }
 
     async createForwarded(data: {
-        content: string;
+        content: string | null;
         senderId: string;
         conversationId: string;
         forwardedFromId: string;
+        type?: MessageType;
+        attachments?: {
+            type: AttachmentType;
+            mimeType: string;
+            size: number;
+            storageKey: string;
+            fileUrl: string;
+            metadata?: any;
+        }[];
     }) {
         return this.prisma.message.create({
             data: {
@@ -301,10 +317,24 @@ export class MessageRepository {
                 forwardedFromId: data.forwardedFromId,
                 senderId: data.senderId,
                 conversationId: data.conversationId,
+                type: data.type,
+                attachments: data.attachments ? {
+                    create: data.attachments.map(att => ({
+                        type: att.type,
+                        mimeType: att.mimeType,
+                        size: att.size,
+                        storageKey: att.storageKey + "-fwd-" + Date.now(),
+                        fileUrl: att.fileUrl,
+                        status: AttachmentStatus.ACTIVE,
+                        processingStatus: "READY",
+                        metadata: att.metadata || undefined,
+                    }))
+                } : undefined,
             },
             include: {
+                attachments: true,
                 sender: {
-                    select: { id: true, username: true, displayName: true },
+                    select: { id: true, username: true, displayName: true, avatarUrl: true },
                 },
             },
         });
@@ -365,13 +395,9 @@ export class MessageRepository {
     async findManyByIds(messageIds: string[]) {
         return this.prisma.message.findMany({
             where: { id: { in: messageIds } },
-            select: {
-                id: true,
-                content: true,
-                conversationId: true,
-                senderId: true,
-                deletedAt: true,
+            include: {
+                attachments: true,
             },
         });
     }
-}
+}

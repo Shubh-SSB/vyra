@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeft, Info, MoreHorizontal, Sparkles } from "lucide-react";
+import { useState, useRef } from "react";
+import { ArrowLeft, Info, MoreHorizontal, Sparkles, X, Forward, Trash, Trash2, EyeOff, MoreVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import IconButton from "@/components/ui/icon-button";
 import Image from "next/image";
@@ -19,6 +20,14 @@ type Props = {
     onToggleContext: () => void;
     isTyping?: boolean;
     myShowLastSeen?: boolean;
+    selectionMode?: boolean;
+    selectedCount?: number;
+    onExitSelectMode?: () => void;
+    onBulkDeleteForMe?: () => void;
+    onBulkDeleteForEveryone?: () => void;
+    onBulkHide?: () => void;
+    onBulkForward?: () => void;
+    selectedOwnCount?: number;
 };
 
 function formatLastSeen(iso: string) {
@@ -80,7 +89,117 @@ function Avatar({ user, size }: { user: ChatHeaderUser | null; size: "sm" | "md"
     );
 }
 
-export default function ChatHeader({ user, onBack, onToggleContext, isTyping, myShowLastSeen }: Props) {
+export default function ChatHeader({
+    user,
+    onBack,
+    onToggleContext,
+    isTyping,
+    myShowLastSeen,
+    selectionMode,
+    selectedCount = 0,
+    onExitSelectMode,
+    onBulkDeleteForMe,
+    onBulkDeleteForEveryone,
+    onBulkHide,
+    onBulkForward,
+    selectedOwnCount = 0,
+}: Props) {
+    const [showSelectMenu, setShowSelectMenu] = useState(false);
+
+    if (selectionMode) {
+        return (
+            <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-[#18181b]/95 px-6 backdrop-blur-xl transition-all duration-300">
+                {/* Left: Exit and Selection Count */}
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={onExitSelectMode}
+                        className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-1"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                    <span className="text-[15px] font-semibold text-foreground select-none">
+                        {selectedCount} selected
+                    </span>
+                </div>
+
+                {/* Right: Selection Actions */}
+                <div className="relative flex items-center gap-1.5">
+                    {/* Bulk Forward */}
+                    <button
+                        onClick={onBulkForward}
+                        disabled={selectedCount === 0}
+                        title="Forward"
+                        className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-full transition cursor-pointer active:scale-95",
+                            selectedCount > 0
+                                ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
+                                : "opacity-30 cursor-not-allowed bg-white/[0.04] text-muted-foreground"
+                        )}
+                    >
+                        <Forward className="h-4 w-4" />
+                    </button>
+
+                    {/* Three Dots More Actions */}
+                    <button
+                        onClick={() => setShowSelectMenu((v) => !v)}
+                        disabled={selectedCount === 0}
+                        className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.07] hover:bg-white/[0.12] text-muted-foreground hover:text-foreground transition cursor-pointer active:scale-95",
+                            selectedCount === 0 && "opacity-30 cursor-not-allowed"
+                        )}
+                    >
+                        <MoreVertical className="h-4 w-4" />
+                    </button>
+
+                    {showSelectMenu && (
+                        <>
+                            {/* Backdrop close trap */}
+                            <div className="fixed inset-0 z-40" onClick={() => setShowSelectMenu(false)} />
+                            <div className="absolute right-0 top-10 z-50 w-48 rounded-xl border border-white/10 bg-[#1c1c1f]/95 py-1 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-1 duration-100">
+                                {selectedOwnCount > 0 && onBulkDeleteForEveryone && (
+                                    <button
+                                        onClick={() => {
+                                            onBulkDeleteForEveryone();
+                                            setShowSelectMenu(false);
+                                        }}
+                                        className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] font-medium text-red-400 hover:bg-white/[0.06] transition"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Delete for Everyone
+                                    </button>
+                                )}
+                                {onBulkDeleteForMe && (
+                                    <button
+                                        onClick={() => {
+                                            onBulkDeleteForMe();
+                                            setShowSelectMenu(false);
+                                        }}
+                                        className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] font-medium text-red-400 hover:bg-white/[0.06] transition"
+                                    >
+                                        <Trash className="h-3.5 w-3.5" />
+                                        Delete for Me
+                                    </button>
+                                )}
+                                {onBulkHide && (
+                                    <button
+                                        onClick={() => {
+                                            onBulkHide();
+                                            setShowSelectMenu(false);
+                                        }}
+                                        className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition border-t border-white/[0.06]"
+                                    >
+                                        <EyeOff className="h-3.5 w-3.5" />
+                                        Hide Messages
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </header>
+        );
+    }
+
     return (
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background px-6">
             {/* Mobile */}

@@ -19,7 +19,7 @@ export type ConversationMessage = {
     id: string;
     conversationId: string;
     senderId: string;
-    type: "TEXT" | "MEDIA";
+    type: "TEXT" | "MEDIA" | "VOICE";
     content: string;
     createdAt: string;
     updatedAt: string;

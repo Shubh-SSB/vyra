@@ -11,12 +11,32 @@ export type MessageReaction = {
     };
 };
 
+export type AttachmentType = "VOICE" | "IMAGE" | "VIDEO" | "DOCUMENT";
+export type AttachmentStatus = "TEMPORARY" | "ACTIVE" | "DELETED";
+export type ProcessingStatus = "READY" | "PROCESSING" | "FAILED";
+
+export type Attachment = {
+    id: string;
+    type: AttachmentType;
+    mimeType: string;
+    size: number;
+    storageKey: string;
+    fileUrl: string;
+    status: AttachmentStatus;
+    processingStatus: ProcessingStatus;
+    metadata?: Record<string, any> | null;
+    createdAt: string;
+    updatedAt: string;
+    messageId?: string | null;
+};
+
 export type Message = {
     id: string;
     conversationId: string;
     senderId: string;
-    content: string;
-    type?: "TEXT" | "MEDIA";
+    content?: string | null;
+    type?: "TEXT" | "VOICE";
+    attachments?: Attachment[];
     reactions?: MessageReaction[];
     createdAt: string;
     updatedAt?: string;
@@ -28,9 +48,9 @@ export type Message = {
         id: string;
         username: string;
         displayName: string;
+        avatarUrl?: string | null;
     };
     replyToId?: string | null;
     replyTo?: Message | null;
     savedIn?: { collectionId: string }[];
 };
-

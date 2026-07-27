@@ -34,7 +34,13 @@ type Props = {
     connectionStatus: string;
     socketError: string | null;
     setSocketError: (err: string | null) => void;
-    sendMessage: (content: string, convId?: string | null, replyToId?: string | null) => boolean;
+    sendMessage: (
+        content: string,
+        convId?: string | null,
+        replyToId?: string | null,
+        type?: "TEXT" | "VOICE",
+        attachments?: { id: string }[],
+    ) => boolean;
     sendTypingStart: (convId?: string | null) => void;
     sendTypingStop: (convId?: string | null) => void;
     sendReaction: (messageId: string, reaction: string) => void;
@@ -187,10 +193,14 @@ export default function ChatArea({
 
     const otherUserTyping = conversationId ? !!typingConversations[conversationId] : false;
 
-    const handleSend = (content: string) => {
+    const handleSend = (
+        content: string,
+        type?: "TEXT" | "VOICE",
+        attachments?: { id: string }[],
+    ) => {
         setSocketError(null);
 
-        if (!sendMessage(content, conversationId, replyingTo?.id)) {
+        if (!sendMessage(content, conversationId, replyingTo?.id, type, attachments)) {
             setSocketError("Chat is still connecting. Please try again in a moment.");
         } else {
             setReplyingTo(null);
@@ -347,6 +357,19 @@ export default function ChatArea({
                 onToggleContext={onToggleProfile ?? (() => { })}
                 isTyping={otherUserTyping}
                 myShowLastSeen={myShowLastSeen}
+                selectionMode={selectionMode}
+                selectedCount={selectedIds.size}
+                onExitSelectMode={exitSelectMode}
+                onBulkDeleteForMe={handleBulkDeleteForMe}
+                onBulkDeleteForEveryone={handleBulkDeleteForEveryone}
+                onBulkHide={handleBulkHide}
+                onBulkForward={handleBulkForward}
+                selectedOwnCount={
+                    Array.from(selectedIds).filter((id) => {
+                        const msg = historyMessages.find((m) => m.id === id);
+                        return msg?.senderId === myUserId;
+                    }).length
+                }
             />
 
             <ChatThread

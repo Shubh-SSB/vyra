@@ -9,6 +9,7 @@ import {
     ChevronDown, Pencil, Trash2, EyeOff, Trash, AlertTriangle, Bookmark, Forward, MousePointerClick
 } from "lucide-react";
 import { SaveToCollectionModal } from "./save-to-collection-modal";
+import VoicePlayer from "./voice-player";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -351,6 +352,13 @@ function ChatMessage({
         const dx = touch.clientX - touchStart.current.x;
         const dy = touch.clientY - touchStart.current.y;
 
+        // Cancel long press timer if they moved their finger significantly (swiping or scrolling)
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+            if (longPressTimer.current) {
+                clearTimeout(longPressTimer.current);
+            }
+        }
+
         if (Math.abs(dx) > Math.abs(dy)) {
             const val = dx * 0.45;
             setSwipeX(val);
@@ -370,6 +378,9 @@ function ChatMessage({
     };
 
     const handleTouchEnd = () => {
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+        }
         touchStart.current = null;
         setSwipeX(0);
     };
@@ -562,18 +573,33 @@ function ChatMessage({
                     {/* ── Context Menu Trigger ── */}
                     {!isDeleted && (
                         <>
-                            <button
-                                ref={menuBtnRef}
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); }}
-                                className="absolute top-0 right-0 z-20 flex h-7 w-7 items-start justify-end
-                                           border border-black/20 rounded-tr-sm rounded-bl-2xl
-                                           bg-transparent text-muted-foreground shadow-md
-                                           transition hover:bg-main hover:text-foreground
-                                           opacity-100 md:opacity-0 md:group-hover:opacity-100 cursor-pointer"
-                            >
-                                <ChevronDown className="h-5 w-5" strokeWidth={3} />
-                            </button>
+                            {isOwn ? (
+                                <button
+                                    ref={menuBtnRef}
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); }}
+                                    className="absolute top-0 right-0 z-20 hidden md:flex h-7 w-7 items-start justify-end
+                                               rounded-tr-sm rounded-bl-2xl
+                                               bg-transparent text-main hover:text-foreground hover:bg-main
+                                               transition duration-150 ease-out
+                                               md:opacity-0 md:group-hover:opacity-100 cursor-pointer"
+                                >
+                                    <ChevronDown className="h-5 w-5" strokeWidth={2.5} />
+                                </button>
+                            ) : (
+                                <button
+                                    ref={menuBtnRef}
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); }}
+                                    className="absolute top-0 left-0 z-20 hidden md:flex h-7 w-7 items-center justify-center
+                                            rounded-tl-sm rounded-br-2xl 
+                                            text-foreground/60 hover:bg-white/10 hover:text-foreground
+                                            transition duration-150 ease-out
+                                            md:opacity-0 md:group-hover:opacity-100 cursor-pointer"
+                                >
+                                    <ChevronDown className="h-5 w-5" strokeWidth={2.5} />
+                                </button>
+                            )}
 
                             {showMenu && (
                                 <ContextMenu
@@ -722,7 +748,7 @@ function ChatMessage({
                             "break-words px-4 py-2.5 text-[14px] leading-[1.55] md:cursor-default cursor-pointer select-none flex flex-col gap-1.5 touch-pan-y",
                             isOwn
                                 ? "rounded-2xl rounded-tr-sm bg-foreground text-background animate-message-fade-in"
-                                : "rounded-2xl rounded-tl-sm bg-main/50 backdrop-blur-xs text-foreground"
+                                : "rounded-2xl rounded-tl-sm bg-main/50 pt-4 px-6 backdrop-blur-xs text-foreground"
                         )}
                     >
                         {message.replyTo && (
@@ -761,7 +787,15 @@ function ChatMessage({
                                 Forwarded
                             </span>
                         )}
-                        <span>{message.content}</span>
+                        {message.attachments && message.attachments.length > 0 && message.attachments[0].type === "VOICE" ? (
+                            <VoicePlayer
+                                src={message.attachments[0].fileUrl}
+                                duration={(message.attachments[0].metadata as any)?.duration || 0}
+                                isOwn={isOwn}
+                            />
+                        ) : (
+                            <span>{message.content}</span>
+                        )}
                         <div className={cn(
                             "mt-1 flex items-center justify-end gap-1.5 text-[10px] tracking-wide",
                             isOwn ? "text-background/50" : "text-muted-foreground"

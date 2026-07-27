@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import { Message } from "@/types/message";
@@ -72,6 +72,7 @@ export default function ChatThread({
     const prevLastMessageId = useRef<string | null>(null);
     const isNearBottomRef = useRef(true);
     const [unreadMessage, setUnreadMessage] = useState<Message | null>(null);
+    const unreadMessageContent = unreadMessage?.content || (unreadMessage?.type === "VOICE" ? "Voice message" : "New message");
 
     const lenisRef = useRef<Lenis | null>(null);
 
@@ -298,7 +299,7 @@ export default function ChatThread({
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
                         <span>
-                            New message: <span className="text-muted-foreground font-normal italic">&ldquo;{unreadMessage.content.slice(0, 30)}{unreadMessage.content.length > 30 ? "..." : ""}&rdquo;</span>
+                            New message: <span className="text-muted-foreground font-normal italic">&ldquo;{unreadMessageContent.slice(0, 30)}{unreadMessageContent.length > 30 ? "..." : ""}&rdquo;</span>
                         </span>
                         <span className="text-[10px] text-muted-foreground ml-1">↓ Scroll</span>
                     </button>
@@ -314,7 +315,7 @@ export default function ChatThread({
                         animate={{ y: 0, opacity: 1 }}
                         exit={{ y: 80, opacity: 0 }}
                         transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                        className="absolute bottom-0 inset-x-0 z-30 flex items-center gap-2 px-4 py-3 bg-[#18181b]/95 backdrop-blur-xl border-t border-white/[0.08] shadow-2xl"
+                        className="absolute bottom-0 inset-x-0 z-30 hidden md:flex items-center gap-2 px-4 py-3 bg-[#18181b]/95 backdrop-blur-xl border-t border-white/[0.08] shadow-2xl"
                     >
                         {/* Cancel */}
                         <button

@@ -10,6 +10,7 @@ import { MessagesModule } from './modules/messages/message.module';
 import { SocketModule } from './socket/socket.module';
 import { FriendsModule } from './modules/friends/friends.module';
 import { CollectionsModule } from './modules/collections/collections.module';
+import { MediaModule } from './modules/media/media.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { CollectionsModule } from './modules/collections/collections.module';
     SocketModule,
     FriendsModule,
     CollectionsModule,
+    MediaModule,
   ]
 })
 export class AppModule {}

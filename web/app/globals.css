@@ -74,6 +74,7 @@
   --surface-elevated: oklch(0.225 0 0);
   /* #202020 */
   --main: #c97955;
+
   --card: oklch(0.195 0 0);
   --card-foreground: oklch(1 0 0);
   --popover: oklch(0.225 0 0);

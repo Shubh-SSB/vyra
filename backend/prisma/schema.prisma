@@ -165,6 +165,7 @@ enum ParticipantRole {
 
 enum MessageType {
   TEXT
+  VOICE
 }
 
 model Conversation {
@@ -205,7 +206,9 @@ model Message {
 
   type MessageType @default(TEXT)
 
-  content String
+  content String?
+
+  attachments Attachment[]
 
   reactions MessageReaction[]
 
@@ -271,4 +274,40 @@ model CollectionItem {
   message    Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@id([collectionId, messageId])
+}
+
+enum AttachmentType {
+  VOICE
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+enum AttachmentStatus {
+  TEMPORARY
+  ACTIVE
+  DELETED
+}
+
+enum ProcessingStatus {
+  READY
+  PROCESSING
+  FAILED
+}
+
+model Attachment {
+  id               String           @id @default(cuid())
+  type             AttachmentType
+  mimeType         String
+  size             Int
+  storageKey       String           @unique
+  fileUrl          String
+  status           AttachmentStatus @default(TEMPORARY)
+  processingStatus ProcessingStatus @default(READY)
+  metadata         Json?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
 }

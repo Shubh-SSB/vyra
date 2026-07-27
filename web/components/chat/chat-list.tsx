@@ -3,7 +3,7 @@
 import { useConversations } from "@/tanstack/queries/conversation.query";
 import { ConversationPreview } from "@/types/conversation";
 import Image from "next/image";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Mic, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAccessToken } from "@/lib/token";
 
@@ -70,7 +70,20 @@ function ConversationRow({
     // Use last message in the array (newest)
     const lastMsg = conv.messages?.at(-1);
     const lastTime = formatTime(lastMsg?.createdAt ?? conv.lastMessageAt);
-    const preview = lastMsg?.content ?? "";
+
+    let preview: React.ReactNode = null;
+    if (lastMsg) {
+        if (lastMsg.content) {
+            preview = lastMsg.content;
+        } else if (lastMsg.type === "VOICE") {
+            preview = <span className="flex items-center gap-1"><Mic className="h-3 w-3 shrink-0" /><span>Voice message</span></span>;
+        } else if (lastMsg.type === "MEDIA") {
+            preview = <span className="flex items-center gap-1"><Paperclip className="h-3 w-3 shrink-0" /><span>Attachment</span></span>;
+        } else {
+            preview = "New message";
+        }
+    }
+
     const unread = conv.unreadCount ?? 0;
 
     return (

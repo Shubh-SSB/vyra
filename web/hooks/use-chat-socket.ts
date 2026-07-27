@@ -201,13 +201,25 @@ export function useChatSocket({
         };
     }, [conversationId, conversationIdsJson]);
 
-    const sendMessage = (content: string, convId?: string | null, replyToId?: string | null): boolean => {
+    const sendMessage = (
+        content: string,
+        convId?: string | null,
+        replyToId?: string | null,
+        type?: "TEXT" | "VOICE",
+        attachments?: { id: string }[],
+    ): boolean => {
         const id = convId ?? conversationId;
         if (!socketRef.current?.connected || !id) {
             return false;
         }
 
-        socketRef.current.emit("sendMessage", { conversationId: id, content, replyToId });
+        socketRef.current.emit("sendMessage", {
+            conversationId: id,
+            content,
+            replyToId,
+            type,
+            attachments,
+        });
         playSound("sent");
         return true;
     };
