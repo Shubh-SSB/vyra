@@ -35,6 +35,7 @@ export interface MeResponse {
   displayName: string;
   email?: string;
   avatarUrl?: string | null;
+  bannerUrl?: string | null;
   bio?: string;
   profileVisibility?: string;
   messagePrivacy?: string;

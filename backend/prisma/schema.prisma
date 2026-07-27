@@ -85,6 +85,7 @@ model User {
   passwordHash String?
 
   avatarUrl String?
+  bannerUrl String?
   bio       String? @db.VarChar(200)
 
   profileVisibility  ProfileVisibility  @default(PUBLIC)

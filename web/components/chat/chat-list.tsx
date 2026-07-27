@@ -61,6 +61,7 @@ function ConversationRow({
     isTyping?: boolean;
 }) {
     const otherUser = getOtherUser(conv, myId);
+    const [openProfile, setOpenProfile] = useState(false);
     if (!otherUser) return null;
 
     const initials = otherUser.displayName
@@ -85,6 +86,7 @@ function ConversationRow({
     }
 
     const unread = conv.unreadCount ?? 0;
+
 
     return (
         <button
@@ -123,10 +125,20 @@ function ConversationRow({
                         alt={otherUser.displayName}
                         width={40}
                         height={40}
-                        className="rounded-full object-cover"
+                        className="rounded-full object-cover cursor-pointer"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenProfile(true);
+                        }}
                     />
                 ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-elevated text-[13px] font-semibold text-foreground ring-1 ring-border">
+                    <div 
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-elevated text-[13px] font-semibold text-foreground ring-1 ring-border cursor-pointer"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenProfile(true);
+                        }}
+                    >
                         {initials}
                     </div>
                 )}
@@ -134,6 +146,14 @@ function ConversationRow({
                     <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
                 )}
             </div>
+
+            <ShowProfileModal open={openProfile} onClose={() => setOpenProfile(false)}
+                displayName={otherUser.displayName}
+                username={otherUser.username}
+                avatarUrl={otherUser.avatarUrl}
+                bannerUrl={otherUser.bannerUrl}
+                bio={otherUser.bio}
+            />
 
             {/* Content */}
             <div className="min-w-0 flex-1 z-10">
@@ -164,7 +184,8 @@ function ConversationRow({
     );
 }
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import ShowProfileModal from "../modal/show-profile.modal";
 
 export default function ChatList({
     activeId,

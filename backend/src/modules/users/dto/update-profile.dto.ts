@@ -30,6 +30,10 @@ export class UpdateProfileDto {
     avatarUrl?: string;
 
     @IsOptional()
+    @IsString()
+    bannerUrl?: string;
+
+    @IsOptional()
     @IsEmail()
     email?: string;
 }

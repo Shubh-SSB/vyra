@@ -11,7 +11,7 @@ export const UserService = {
         return $crud.get<UserProfile>(`users/profile/${username}`);
     },
 
-    updateProfile(data: { displayName?: string; bio?: string; avatarUrl?: string; email?: string }) {
+    updateProfile(data: { displayName?: string; bio?: string; avatarUrl?: string; bannerUrl?: string; email?: string }) {
         return $crud.patch<UserProfile>("users/profile", data);
     },
 

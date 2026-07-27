@@ -30,13 +30,21 @@ export default function EditProfilePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [selectedBannerFile, setSelectedBannerFile] = useState<File | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState("");
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
+
   useEffect(() => {
     return () => {
       if (avatarPreviewUrl && avatarPreviewUrl.startsWith("blob:")) {
         URL.revokeObjectURL(avatarPreviewUrl);
       }
+      if (bannerPreviewUrl && bannerPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(bannerPreviewUrl);
+      }
     };
-  }, [avatarPreviewUrl]);
+  }, [avatarPreviewUrl, bannerPreviewUrl]);
 
   const processFile = (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -51,6 +59,21 @@ export default function EditProfilePage() {
     const objectUrl = URL.createObjectURL(file);
     setAvatarPreviewUrl(objectUrl);
     enqueueSnackbar("Avatar updated in preview", { variant: "success" });
+  };
+
+  const processBannerFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      enqueueSnackbar("Please upload an image file", { variant: "error" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      enqueueSnackbar("Image size should be less than 2MB", { variant: "error" });
+      return;
+    }
+    setSelectedBannerFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setBannerPreviewUrl(objectUrl);
+    enqueueSnackbar("Banner updated in preview", { variant: "success" });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -82,8 +105,11 @@ export default function EditProfilePage() {
       setEmail(user.email || "");
       setBio(user.bio || "");
       setAvatarUrl(user.avatarUrl || "");
+      setBannerUrl(user.bannerUrl || "");
       setAvatarPreviewUrl("");
+      setBannerPreviewUrl("");
       setSelectedFile(null);
+      setSelectedBannerFile(null);
     }
   }, [user]);
 
@@ -106,9 +132,13 @@ export default function EditProfilePage() {
     }
 
     let finalAvatarUrl = avatarUrl;
+    let finalBannerUrl = bannerUrl;
+
+    if (selectedFile || selectedBannerFile) {
+      setIsUploading(true);
+    }
 
     if (selectedFile) {
-      setIsUploading(true);
       try {
         const fileExt = selectedFile.name.split(".").pop() || "jpg";
         const fileName = `avatar-${Date.now()}.${fileExt}`;
@@ -141,12 +171,46 @@ export default function EditProfilePage() {
       }
     }
 
+    if (selectedBannerFile) {
+      try {
+        const fileExt = selectedBannerFile.name.split(".").pop() || "jpg";
+        const fileName = `banner-${Date.now()}.${fileExt}`;
+        const contentType = selectedBannerFile.type;
+
+        // 1. Get Presigned URL for avatars folder
+        const response = await api.post("/attachments/presigned-url", {
+          fileName,
+          contentType,
+          folder: "avatars",
+        });
+
+        const { uploadUrl, fileUrl } = response.data.data;
+
+        // 2. Upload file directly to object store
+        await fetch(uploadUrl, {
+          method: "PUT",
+          body: selectedBannerFile,
+          headers: {
+            "Content-Type": contentType,
+          },
+        });
+
+        finalBannerUrl = fileUrl;
+      } catch (err: any) {
+        console.error("Failed to upload banner", err);
+        enqueueSnackbar("Failed to upload banner image to storage", { variant: "error" });
+        setIsUploading(false);
+        return;
+      }
+    }
+
     updateProfile(
       {
         displayName: displayName.trim(),
         email: email.trim() || undefined,
         bio: bio.trim() || "",
         avatarUrl: finalAvatarUrl,
+        bannerUrl: finalBannerUrl,
       },
       {
         onSuccess: () => {
@@ -251,6 +315,85 @@ export default function EditProfilePage() {
                     className="text-xs text-red-400 hover:text-red-300 font-semibold transition hover:underline"
                   >
                     Remove Photo
+                  </button>
+                )}
+
+                <div className="w-full h-px bg-white/5 my-2" />
+
+                <div className="text-center w-full">
+                  <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Profile Banner</h3>
+                  <p className="text-[11px] text-muted-foreground/50 mt-1">Drag and drop or click to upload banner</p>
+                </div>
+
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDraggingBanner(true);
+                  }}
+                  onDragLeave={() => setIsDraggingBanner(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDraggingBanner(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      processBannerFile(e.dataTransfer.files[0]);
+                    }
+                  }}
+                  onClick={() => document.getElementById("banner-input")?.click()}
+                  className={cn(
+                    "relative w-full aspect-video rounded-2xl border-2 border-dashed flex items-center justify-center transition-all duration-300 cursor-pointer overflow-hidden group shadow-inner",
+                    isDraggingBanner
+                      ? "border-white bg-white/[0.06] scale-[1.01]"
+                      : "border-white/[0.12] hover:border-white/30 hover:bg-white/[0.02]"
+                  )}
+                >
+                  <input
+                    id="banner-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        processBannerFile(e.target.files[0]);
+                      }
+                    }}
+                    className="hidden"
+                  />
+
+                  {(bannerPreviewUrl || bannerUrl) ? (
+                    <div className="absolute inset-0 w-full h-full">
+                      <Image
+                        src={bannerPreviewUrl || bannerUrl}
+                        alt="Banner preview"
+                        fill
+                        className="object-cover transition duration-300 group-hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2">
+                        <ImageIcon className="h-5 w-5 text-white" />
+                        <span className="text-[10px] font-bold text-white uppercase tracking-wider">Change Banner</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 p-4 text-center">
+                      <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      <div>
+                        <span className="text-[11px] font-semibold text-[#eeece4] block">Drop Banner Here</span>
+                        <span className="text-[9px] text-muted-foreground/50 block mt-0.5">or browse files</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {(bannerPreviewUrl || bannerUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBannerUrl("");
+                      setBannerPreviewUrl("");
+                      setSelectedBannerFile(null);
+                      enqueueSnackbar("Banner removed from preview", { variant: "info" });
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300 font-semibold transition hover:underline"
+                  >
+                    Remove Banner
                   </button>
                 )}
               </div>

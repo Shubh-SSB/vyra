@@ -45,6 +45,7 @@ type Props = {
     sendTypingStop: (convId?: string | null) => void;
     sendReaction: (messageId: string, reaction: string) => void;
     onToggleProfile?: () => void;
+    isFriend?: boolean;
     myShowLastSeen?: boolean;
 };
 
@@ -61,6 +62,7 @@ export default function ChatArea({
     sendTypingStop,
     sendReaction,
     onToggleProfile,
+    isFriend = true,
     myShowLastSeen,
 }: Props) {
     const queryClient = useQueryClient();
@@ -183,11 +185,13 @@ export default function ChatArea({
     const otherParticipant = conversation?.participants.find((participant) => participant.userId !== myUserId);
     const otherUser = otherParticipant
         ? {
+            id: otherParticipant.user.id,
             displayName: otherParticipant.user.displayName,
             username: otherParticipant.user.username,
             avatarUrl: otherParticipant.user.avatarUrl,
             isOnline: otherParticipant.user.isOnline,
             lastSeen: otherParticipant.user.lastSeen,
+            bio: (otherParticipant.user as any).bio || undefined,
         }
         : null;
 
@@ -355,6 +359,7 @@ export default function ChatArea({
                 user={otherUser}
                 onBack={goBackToList}
                 onToggleContext={onToggleProfile ?? (() => { })}
+                isFriend={isFriend}
                 isTyping={otherUserTyping}
                 myShowLastSeen={myShowLastSeen}
                 selectionMode={selectionMode}

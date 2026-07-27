@@ -3,5 +3,6 @@ export class PublicUserDto {
     username!: string;
     displayName!: string;
     avatarUrl?: string;
+    bannerUrl?: string;
     bio?: string;
 }

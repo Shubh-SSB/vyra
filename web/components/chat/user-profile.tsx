@@ -2,15 +2,25 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { X, Share2, UserPlus, CheckCircle2 } from "lucide-react";
+import { X, Share2, UserPlus, Clock, UserCheck, Loader2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+    useRelationship,
+    useIncomingRequests,
+    useOutgoingRequests,
+    useSendFriendRequest,
+    useCancelFriendRequest,
+    useAcceptFriendRequest,
+} from "@/tanstack/queries/friend.query";
 
 
 type UserProfileProps = {
     user: {
+        id: string;
         displayName: string;
         username: string;
         avatarUrl?: string | null;
+        bannerUrl?: string | null;
         isOnline?: boolean;
         bio?: string;
     } | null;
@@ -42,14 +52,33 @@ const STACK_GROUPS = [
 export default function UserProfile({ user, onClose, onMessageClick }: UserProfileProps) {
     const [isBioExpanded, setIsBioExpanded] = useState(false);
 
+    // ── Relationship ─────────────────────────────────────────────────────────
+    // Use the centralized hooks so all components share the same cache shape
+    const { data: relationship } = useRelationship(user?.id);
+    const rel = relationship ?? "NONE";
+
+    const { data: incomingRequests } = useIncomingRequests();
+    const { data: outgoingRequests } = useOutgoingRequests();
+
+    // Find the relevant request id for the current user
+    const incomingReq = incomingRequests?.find((r) => r.sender.id === user?.id);
+    const outgoingReq = outgoingRequests?.find((r) => r.receiver.id === user?.id);
+
+    const sendRequest = useSendFriendRequest(user?.id ?? "");
+    const cancelRequest = useCancelFriendRequest(outgoingReq?.id);
+    const acceptRequest = useAcceptFriendRequest();
+
+    const isMutating = sendRequest.isPending || cancelRequest.isPending || acceptRequest.isPending;
+
     if (!user) return null;
 
     const initials = user.displayName
         ? user.displayName.trim().split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
         : user.username.slice(0, 2).toUpperCase();
 
-    const defaultBio = user.bio || "I'm a generous and helpful girl, hope my enthusiasm adds more color to your life. Welcome to my space!";
-    const displayBio = isBioExpanded ? defaultBio : defaultBio.slice(0, 75) + "...";
+    const defaultBio = user.bio || "No bio yet.";
+    const hasLongBio = defaultBio.length > 75;
+    const displayBio = isBioExpanded || !hasLongBio ? defaultBio : defaultBio.slice(0, 75) + "...";
 
     return (
         <div className="h-full w-full bg-background">
@@ -72,7 +101,7 @@ export default function UserProfile({ user, onClose, onMessageClick }: UserProfi
                     <div className="">
                         <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/5 shadow-lg">
                             <Image
-                                src="/bg1.jpeg"
+                                src={user.bannerUrl || "/bg1.jpeg"}
                                 alt="banner"
                                 fill
                                 className="object-cover transition duration-500 group-hover:scale-105"
@@ -124,12 +153,14 @@ export default function UserProfile({ user, onClose, onMessageClick }: UserProfi
                     {/* Expandable Bio */}
                     <p className="mt-4 text-xs font-medium text-[#d1cec2] leading-relaxed max-w-xs">
                         {displayBio}{" "}
-                        <button
-                            onClick={() => setIsBioExpanded(!isBioExpanded)}
-                            className="text-[#c97955] font-semibold hover:underline focus:outline-none"
-                        >
-                            {isBioExpanded ? "Less" : "More"}
-                        </button>
+                        {hasLongBio && (
+                            <button
+                                onClick={() => setIsBioExpanded(!isBioExpanded)}
+                                className="text-[#c97955] font-semibold hover:underline focus:outline-none animate-fade-in"
+                            >
+                                {isBioExpanded ? "Less" : "More"}
+                            </button>
+                        )}
                     </p>
                 </div>
 
@@ -149,12 +180,46 @@ export default function UserProfile({ user, onClose, onMessageClick }: UserProfi
                         Message
                     </button>
 
-                    <button
-                        className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-surface-elevated hover:bg-surface hover:border-white/20 active:scale-95 transition-all text-foreground"
-                        title="Add Connection"
-                    >
-                        <UserPlus className="h-4 w-4" />
-                    </button>
+                    {isMutating ? (
+                        <button
+                            disabled
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-surface-elevated opacity-50 cursor-not-allowed text-foreground"
+                        >
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        </button>
+                    ) : rel === "FRIENDS" ? (
+                        <button
+                            disabled
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 cursor-default"
+                            title="Connected"
+                        >
+                            <UserCheck className="h-4 w-4" />
+                        </button>
+                    ) : rel === "PENDING_SENT" ? (
+                        <button
+                            onClick={() => cancelRequest.mutate()}
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer"
+                            title="Cancel Connection Request"
+                        >
+                            <Clock className="h-4 w-4" />
+                        </button>
+                    ) : rel === "PENDING_RECEIVED" ? (
+                        <button
+                            onClick={() => incomingReq && acceptRequest.mutate(incomingReq.id)}
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-indigo-500/30 bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 active:scale-95 transition-all cursor-pointer"
+                            title="Accept Connection Request"
+                        >
+                            <UserPlus className="h-4 w-4" />
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => sendRequest.mutate()}
+                            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-surface-elevated hover:bg-surface hover:border-white/20 active:scale-95 transition-all text-foreground cursor-pointer"
+                            title="Add Connection"
+                        >
+                            <UserPlus className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
 
                 {/* Friends and Groups Info Stack */}

@@ -9,9 +9,11 @@ export type ConversationParticipant = {
         username: string;
         displayName: string;
         avatarUrl?: string;
+        bannerUrl?: string;
         isOnline?: boolean;
         email?: string;
         lastSeen?: string | null;
+        bio?: string;
     };
 };
 
@@ -37,4 +39,4 @@ export type ConversationPreview = {
     messages: ConversationMessage[]; // array, last item is newest
     unreadCount?: number;
 };
-
+

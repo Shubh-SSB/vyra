@@ -8,6 +8,7 @@ export class UserResponseDto {
     createdAt!: Date;
     updatedAt!: Date; 
     avatarUrl?: string;
+    bannerUrl?: string;
     bio?: string;
     profileVisibility?: ProfileVisibility;
     messagePrivacy?: MessagePrivacy;

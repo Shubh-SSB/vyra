@@ -18,6 +18,7 @@ type Props = {
     user: ChatHeaderUser | null;
     onBack: () => void;
     onToggleContext: () => void;
+    isFriend?: boolean;
     isTyping?: boolean;
     myShowLastSeen?: boolean;
     selectionMode?: boolean;
@@ -93,6 +94,7 @@ export default function ChatHeader({
     user,
     onBack,
     onToggleContext,
+    isFriend = true,
     isTyping,
     myShowLastSeen,
     selectionMode,
@@ -209,7 +211,7 @@ export default function ChatHeader({
                 </button>
                 <div 
                     onClick={onToggleContext}
-                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition select-none"
+                    className="flex items-center gap-2 select-none cursor-pointer hover:opacity-80 transition"
                 >
                     <Avatar user={user} size="sm" />
                     <div>
@@ -230,7 +232,7 @@ export default function ChatHeader({
             {/* Desktop */}
             <div 
                 onClick={onToggleContext}
-                className="hidden items-center gap-3 md:flex cursor-pointer hover:opacity-80 transition select-none"
+                className="hidden items-center gap-3 md:flex select-none cursor-pointer hover:opacity-80 transition"
             >
                 <Avatar user={user} size="md" />
                 <div>

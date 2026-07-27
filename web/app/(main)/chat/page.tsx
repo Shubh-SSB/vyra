@@ -23,6 +23,7 @@ import { useConversations } from "@/tanstack/queries/conversation.query";
 import { useMe } from "@/tanstack/queries/auth.query";
 import { useChatSocket } from "@/hooks/use-chat-socket";
 import { getAccessToken } from "@/lib/token";
+import { useRelationship } from "@/tanstack/queries/friend.query";
 import { useSearchParams } from "next/navigation";
 import { playSound } from "@/lib/sounds";
 import Image from "next/image";
@@ -92,13 +93,18 @@ function ChatPageContent() {
   const otherParticipant = activeConversation?.participants.find((p) => p.userId !== myUserId);
   const otherUser = otherParticipant
     ? {
+      id: otherParticipant.user.id,
       displayName: otherParticipant.user.displayName,
       username: otherParticipant.user.username,
       avatarUrl: otherParticipant.user.avatarUrl,
+      bannerUrl: otherParticipant.user.bannerUrl,
       isOnline: otherParticipant.user.isOnline,
       bio: (otherParticipant.user as any).bio || undefined,
     }
     : null;
+
+  const { data: relationship } = useRelationship(otherUser?.id);
+  const isFriend = relationship === "FRIENDS";
 
   // Auto-close profile on active conversation changes
   useEffect(() => {
@@ -455,6 +461,7 @@ function ChatPageContent() {
               openProfile();
             }
           }}
+          isFriend={isFriend}
           myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
         />
         <AnimatePresence>

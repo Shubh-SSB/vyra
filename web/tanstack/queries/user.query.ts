@@ -26,7 +26,7 @@ export const useProfile = (username: string) => {
 export const useUpdateProfile = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (data: { displayName?: string; bio?: string; avatarUrl?: string; email?: string }) => {
+        mutationFn: async (data: { displayName?: string; bio?: string; avatarUrl?: string; bannerUrl?: string; email?: string }) => {
             const res = await UserService.updateProfile(data);
             return res.data;
         },

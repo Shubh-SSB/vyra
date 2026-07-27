@@ -9,6 +9,8 @@ export class UserProfileResponseDto {
 
   avatarUrl!: string | null;
 
+  bannerUrl!: string | null;
+
   bio!: string | null;
 
   lastSeen?: Date | null;
