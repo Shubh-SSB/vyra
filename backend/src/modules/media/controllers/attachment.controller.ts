@@ -15,6 +15,7 @@ export class AttachmentController {
         const result = await this.attachmentService.generatePresignedUrl(
             dto.fileName,
             dto.contentType,
+            dto.folder,
         );
         return ApiResponseUtil.success(result, "Presigned URL generated successfully");
     }

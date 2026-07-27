@@ -20,8 +20,8 @@ export class StorageService {
         this.bucketName = this.configService.get<string>('CLOUDFLARE_R2_BUCKET_NAME')!;
     }
 
-    async getPresignedUrl(fileName: string, contentType: string) {
-        const key = `voicenotes/${Date.now()}-${fileName}`;
+    async getPresignedUrl(fileName: string, contentType: string, folder: string = "voicenotes") {
+        const key = `${folder}/${Date.now()}-${fileName}`;
         const command = new PutObjectCommand({
             Bucket: this.bucketName,
             Key: key,

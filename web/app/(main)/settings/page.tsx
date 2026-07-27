@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, Suspense, type ReactNode } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Bell,
@@ -34,7 +35,7 @@ import Avatar from "@/components/ui/avatar";
 import ProfileCard from "@/components/ui/profile-card";
 import { useMe } from "@/tanstack/queries/auth.query";
 import { useUpdatePrivacy } from "@/tanstack/queries/user.query";
-import { enqueueSnackbar } from "notistack";
+import { useSnackbar } from "notistack";
 import Image from "next/image";
 import SettingsToggle from "@/components/ui/settings-toggle";
 import SettingSidebar from "@/components/ui/settings-sidebar";
@@ -48,7 +49,8 @@ const navigation: Array<{ id: SectionId; label: string; icon: ReactNode }> = [
   { id: "privacy", label: "Privacy", icon: <Eye className="h-4 w-4" /> },
 ];
 
-export default function SettingsPage() {
+function SettingsPageContent() {
+  const { enqueueSnackbar } = useSnackbar();
   const { data: meResponse, isLoading: isUserLoading } = useMe();
   const { mutate: updatePrivacy } = useUpdatePrivacy();
   const [activeSection, setActiveSection] = useState<SectionId>("account");
@@ -61,6 +63,17 @@ export default function SettingsPage() {
     return true;
   });
   const [notice, setNotice] = useState("");
+
+  const searchParams = useSearchParams();
+  const updatedParam = searchParams.get("updated");
+
+  useEffect(() => {
+    if (updatedParam === "profile") {
+      setNotice("Your profile changes have been saved.");
+      window.setTimeout(() => setNotice(""), 3500);
+      window.history.replaceState(null, "", "/settings");
+    }
+  }, [updatedParam]);
 
   const handleChatSoundsChange = (checked: boolean) => {
     setChatSounds(checked);
@@ -133,7 +146,7 @@ export default function SettingsPage() {
                   >
                     <div className="flex items-center gap-4">
                       <Avatar compact user={user} />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-[14px] text-[#eeece4]">{user.displayName}</p>
                           <span className="rounded bg-white/[0.09] px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-muted-foreground">YOU</span>
@@ -141,6 +154,11 @@ export default function SettingsPage() {
                         <p className="mt-0.5 text-[11px] text-muted-foreground truncate max-w-[200px]">
                           {user.email || `@${user.username}`}
                         </p>
+                        {user.bio && (
+                          <p className="mt-1 text-[11px] text-[#eeece4]/60 italic truncate max-w-[200px] font-normal leading-normal">
+                            "{user.bio}"
+                          </p>
+                        )}
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -349,6 +367,21 @@ export default function SettingsPage() {
         <ProfileCard />
       </div>
     </main>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-svh items-center justify-center bg-black text-foreground font-geist">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-white" />
+          <p className="text-xs tracking-widest uppercase text-muted-foreground animate-pulse font-semibold">Loading settings...</p>
+        </div>
+      </main>
+    }>
+      <SettingsPageContent />
+    </Suspense>
   );
 }
 

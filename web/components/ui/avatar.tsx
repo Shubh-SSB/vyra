@@ -1,9 +1,17 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 import { AvatarProps } from "@/types/user.type";
 import Image from "next/image";
-
+import { useState, useEffect } from "react";
 
 export default function Avatar({ compact = false, user }: AvatarProps) {
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+        setHasError(false);
+    }, [user?.avatarUrl]);
+
     const initials = user?.displayName
         ? user.displayName.trim().split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
         : "?";
@@ -13,13 +21,14 @@ export default function Avatar({ compact = false, user }: AvatarProps) {
 
     return (
         <div className={cn("relative shrink-0 rounded-full bg-gradient-to-tr from-cyan-400 via-pink-500 to-indigo-500 p-[2px] shadow-inner", sizeClass)}>
-            <div className={cn("relative flex h-full w-full items-center justify-center rounded-full bg-[#151517] font-display font-bold text-foreground overflow-hidden", textClass)}>
-                {user?.avatarUrl ? (
+            <div className={cn("relative flex h-full w-full items-center justify-center rounded-full bg-[#151517] font-display font-bold text-[#eeece4] overflow-hidden", textClass)}>
+                {user?.avatarUrl && !hasError ? (
                     <Image
                         src={user.avatarUrl}
                         alt="user profile"
                         fill
                         className="object-cover"
+                        onError={() => setHasError(true)}
                     />
                 ) : (
                     initials

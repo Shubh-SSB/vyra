@@ -6,5 +6,6 @@ export function useMe() {
     return useQuery({
         queryKey: queryKeys.me,
         queryFn: () => authService.me(),
+        staleTime: Infinity, // Keep cached user profile fresh indefinitely (manually invalidated on profile/username changes)
     })
 }

@@ -10,8 +10,8 @@ export class AttachmentService {
         private readonly storageService: StorageService,
     ) {}
 
-    async generatePresignedUrl(fileName: string, contentType: string) {
-        return this.storageService.getPresignedUrl(fileName, contentType);
+    async generatePresignedUrl(fileName: string, contentType: string, folder?: string) {
+        return this.storageService.getPresignedUrl(fileName, contentType, folder);
     }
 
     async completeAttachment(data: {

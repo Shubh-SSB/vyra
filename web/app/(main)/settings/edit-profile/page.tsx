@@ -7,13 +7,15 @@ import Image from "next/image";
 import { ArrowLeft, UserRound, Mail, FileText, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useMe } from "@/tanstack/queries/auth.query";
 import { useUpdateProfile } from "@/tanstack/queries/user.query";
-import { enqueueSnackbar } from "notistack";
+import { useSnackbar } from "notistack";
 import Avatar from "@/components/ui/avatar";
 import SettingSidebar from "@/components/ui/settings-sidebar";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/axios";
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
   const { data: meResponse, isLoading: isUserLoading } = useMe();
   const { mutate: updateProfile, isPending: isSaving } = useUpdateProfile();
 
@@ -23,7 +25,18 @@ export default function EditProfilePage() {
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl && avatarPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+    };
+  }, [avatarPreviewUrl]);
 
   const processFile = (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -34,14 +47,10 @@ export default function EditProfilePage() {
       enqueueSnackbar("Image size should be less than 2MB", { variant: "error" });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setAvatarUrl(e.target.result as string);
-        enqueueSnackbar("Avatar updated in preview", { variant: "success" });
-      }
-    };
-    reader.readAsDataURL(file);
+    setSelectedFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setAvatarPreviewUrl(objectUrl);
+    enqueueSnackbar("Avatar updated in preview", { variant: "success" });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -73,6 +82,8 @@ export default function EditProfilePage() {
       setEmail(user.email || "");
       setBio(user.bio || "");
       setAvatarUrl(user.avatarUrl || "");
+      setAvatarPreviewUrl("");
+      setSelectedFile(null);
     }
   }, [user]);
 
@@ -87,11 +98,47 @@ export default function EditProfilePage() {
     );
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!displayName.trim()) {
       enqueueSnackbar("Display name is required", { variant: "error" });
       return;
+    }
+
+    let finalAvatarUrl = avatarUrl;
+
+    if (selectedFile) {
+      setIsUploading(true);
+      try {
+        const fileExt = selectedFile.name.split(".").pop() || "jpg";
+        const fileName = `avatar-${Date.now()}.${fileExt}`;
+        const contentType = selectedFile.type;
+
+        // 1. Get Presigned URL for avatars folder
+        const response = await api.post("/attachments/presigned-url", {
+          fileName,
+          contentType,
+          folder: "avatars",
+        });
+
+        const { uploadUrl, fileUrl } = response.data.data;
+
+        // 2. Upload file directly to object store
+        await fetch(uploadUrl, {
+          method: "PUT",
+          body: selectedFile,
+          headers: {
+            "Content-Type": contentType,
+          },
+        });
+
+        finalAvatarUrl = fileUrl;
+      } catch (err: any) {
+        console.error("Failed to upload avatar", err);
+        enqueueSnackbar("Failed to upload avatar image to storage", { variant: "error" });
+        setIsUploading(false);
+        return;
+      }
     }
 
     updateProfile(
@@ -99,15 +146,17 @@ export default function EditProfilePage() {
         displayName: displayName.trim(),
         email: email.trim() || undefined,
         bio: bio.trim() || "",
-        avatarUrl: avatarUrl.trim() || "",
+        avatarUrl: finalAvatarUrl,
       },
       {
         onSuccess: () => {
           enqueueSnackbar("Profile updated successfully", { variant: "success" });
+          setIsUploading(false);
           router.push("/settings");
         },
         onError: (err: any) => {
           enqueueSnackbar(err?.response?.data?.message || "Failed to update profile", { variant: "error" });
+          setIsUploading(false);
         },
       }
     );
@@ -162,10 +211,10 @@ export default function EditProfilePage() {
                     className="hidden"
                   />
 
-                  {avatarUrl ? (
+                  {(avatarPreviewUrl || avatarUrl) ? (
                     <div className="absolute inset-0 w-full h-full">
                       <Image
-                        src={avatarUrl}
+                        src={avatarPreviewUrl || avatarUrl}
                         alt="Avatar preview"
                         fill
                         className="object-cover transition duration-300 group-hover:scale-105"
@@ -190,11 +239,13 @@ export default function EditProfilePage() {
                   )}
                 </div>
 
-                {avatarUrl && (
+                {(avatarPreviewUrl || avatarUrl) && (
                   <button
                     type="button"
                     onClick={() => {
                       setAvatarUrl("");
+                      setAvatarPreviewUrl("");
+                      setSelectedFile(null);
                       enqueueSnackbar("Avatar removed from preview", { variant: "info" });
                     }}
                     className="text-xs text-red-400 hover:text-red-300 font-semibold transition hover:underline"
@@ -287,10 +338,10 @@ export default function EditProfilePage() {
                   </Link>
                   <button
                     type="submit"
-                    disabled={isSaving}
+                    disabled={isSaving || isUploading}
                     className="flex-1 rounded-2xl bg-white py-3.5 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-50 transition flex items-center justify-center gap-2"
                   >
-                    {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {(isSaving || isUploading) && <Loader2 className="h-4 w-4 animate-spin" />}
                     Save Changes
                   </button>
                 </div>
