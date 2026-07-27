@@ -329,4 +329,60 @@ export class MessagesService {
             hidden: true,
         }
     }
-}
+
+    async forwardMessages(
+        senderId: string,
+        messageIds: string[],
+        conversationIds: string[],
+    ) {
+        if (!messageIds.length || !conversationIds.length) {
+            throw new BadRequestException("messageIds and conversationIds must be non-empty arrays");
+        }
+
+        // Fetch originals
+        const originals = await this.messageRepository.findManyByIds(messageIds);
+        if (originals.length === 0) throw new NotFoundException("No messages found to forward");
+
+        // Validate sender is participant in all target conversations
+        for (const convId of conversationIds) {
+            const isParticipant = await this.conversationRepository.isParticipant(convId, senderId);
+            if (!isParticipant) {
+                throw new ForbiddenException(`You are not a participant of conversation ${convId}`);
+            }
+        }
+
+        const forwarded: any[] = [];
+        for (const convId of conversationIds) {
+            for (const original of originals) {
+                if (original.deletedAt) continue; // skip deleted
+                const msg = await this.messageRepository.createForwarded({
+                    content: original.content,
+                    senderId,
+                    conversationId: convId,
+                    forwardedFromId: original.id,
+                });
+                forwarded.push({ ...msg, conversationId: convId });
+                await this.conversationRepository.updateLastMessageAt(convId);
+                await this.conversationRepository.updateLastReadAt(convId, senderId, msg.createdAt);
+            }
+        }
+
+        return forwarded;
+    }
+
+    async bulkDeleteForMe(userId: string, messageIds: string[]) {
+        if (!messageIds.length) throw new BadRequestException("messageIds must be non-empty");
+        return this.messageRepository.bulkDeleteForMe(messageIds, userId);
+    }
+
+    async bulkDeleteForEveryone(userId: string, messageIds: string[]) {
+        if (!messageIds.length) throw new BadRequestException("messageIds must be non-empty");
+        // Only own messages can be deleted for everyone
+        return this.messageRepository.bulkDeleteForEveryone(messageIds, userId);
+    }
+
+    async bulkHideMessages(userId: string, messageIds: string[]) {
+        if (!messageIds.length) throw new BadRequestException("messageIds must be non-empty");
+        return this.messageRepository.bulkHideForMe(messageIds, userId);
+    }
+}

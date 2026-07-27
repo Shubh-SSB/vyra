@@ -91,12 +91,14 @@ export class CrudFactory {
     return this.send<T>({ method: "PATCH", url: this.buildUrl(this.BASE_URL, url), data, ...options });
   }
 
-  async delete<T = unknown>(
+  async delete<T = unknown, D = unknown>(
     url: string,
+    data?: D,
     options: RequestOptions = {},
   ): Promise<ApiResponse<T>> {
-    return this.send<T>({ method: "DELETE", url: this.buildUrl(this.BASE_URL, url), ...options });
+    return this.send<T>({ method: "DELETE", url: this.buildUrl(this.BASE_URL, url), data, ...options });
   }
+
 
   // ─── Core send ────────────────────────────────────────────────────────────
 

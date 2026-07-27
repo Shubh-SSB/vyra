@@ -384,4 +384,11 @@ export class ChatGateway
             message,
         });
     }
-}
+
+    broadcastNewMessage(conversationId: string, message: any) {
+        this.server.to(conversationId).emit("newMessage", {
+            conversationId,
+            message,
+        });
+    }
+}

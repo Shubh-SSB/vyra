@@ -22,6 +22,8 @@ export type Message = {
     updatedAt?: string;
     editedAt?: string | null;
     deletedAt?: string | null;
+    isForwarded?: boolean;
+    forwardedFromId?: string | null;
     sender?: {
         id: string;
         username: string;
@@ -31,3 +33,4 @@ export type Message = {
     replyTo?: Message | null;
     savedIn?: { collectionId: string }[];
 };
+

@@ -33,4 +33,21 @@ export const MessageService = {
     unhideMessage(messageId: string) {
         return $crud.delete<{ messageId: string; hidden: false }>(`messages/${messageId}/hide`);
     },
+
+    forwardMessages(messageIds: string[], conversationIds: string[]) {
+        return $crud.post<Message[]>(`messages/forward`, { messageIds, conversationIds });
+    },
+
+    bulkDeleteForMe(messageIds: string[]) {
+        return $crud.delete<{ count: number }>(`messages/bulk/me`, { messageIds });
+    },
+
+    bulkDeleteForEveryone(messageIds: string[]) {
+        return $crud.delete<{ count: number }>(`messages/bulk/everyone`, { messageIds });
+    },
+
+    bulkHideMessages(messageIds: string[]) {
+        return $crud.post<{ count: number }>(`messages/bulk/hide`, { messageIds });
+    },
 };
+

@@ -20,6 +20,8 @@ import { MessagesService } from "../services/message.service";
 import { SendMessageDto } from "../dto/send-message.dto";
 import { ChatGateway } from "../../../socket/gateways/chat.gateway";
 import { EditMessageDto } from "../dto/edit-message.dto";
+import { ForwardMessagesDto } from "../dto/forward-messages.dto";
+import { BulkActionDto } from "../dto/bulk-action.dto";
 
 @Controller("messages")
 @UseGuards(JwtAuthGuard)
@@ -54,6 +56,52 @@ export class MessagesController {
     async getHiddenMessages(@Req() req) {
         const messages = await this.messagesService.getHiddenMessages(req.user.id);
         return ApiResponseUtil.success(messages, "Hidden messages fetched successfully");
+    }
+
+    @Post("forward")
+    async forwardMessages(
+        @Req() req,
+        @Body() dto: ForwardMessagesDto,
+    ) {
+        const forwarded = await this.messagesService.forwardMessages(
+            req.user.id,
+            dto.messageIds,
+            dto.conversationIds,
+        );
+
+        // Broadcast each forwarded message on the socket
+        for (const msg of forwarded) {
+            this.chatGateway.broadcastNewMessage(msg.conversationId, msg);
+        }
+
+        return ApiResponseUtil.success(forwarded, "Messages forwarded successfully");
+    }
+
+    @Delete("bulk/me")
+    async bulkDeleteForMe(
+        @Req() req,
+        @Body() dto: BulkActionDto,
+    ) {
+        const result = await this.messagesService.bulkDeleteForMe(req.user.id, dto.messageIds);
+        return ApiResponseUtil.success(result, "Messages deleted for you successfully");
+    }
+
+    @Delete("bulk/everyone")
+    async bulkDeleteForEveryone(
+        @Req() req,
+        @Body() dto: BulkActionDto,
+    ) {
+        const result = await this.messagesService.bulkDeleteForEveryone(req.user.id, dto.messageIds);
+        return ApiResponseUtil.success(result, "Messages deleted for everyone successfully");
+    }
+
+    @Post("bulk/hide")
+    async bulkHide(
+        @Req() req,
+        @Body() dto: BulkActionDto,
+    ) {
+        const result = await this.messagesService.bulkHideMessages(req.user.id, dto.messageIds);
+        return ApiResponseUtil.success(result, "Messages hidden successfully");
     }
 
     @Get(":conversationId")

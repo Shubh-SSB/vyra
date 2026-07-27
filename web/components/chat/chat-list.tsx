@@ -151,19 +151,34 @@ function ConversationRow({
     );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+import { useMemo } from "react";
 
 export default function ChatList({
     activeId,
     onSelect,
     typingConversations,
+    query = "",
 }: {
     activeId?: string;
     onSelect?: (conv: ConversationPreview) => void;
     typingConversations?: Record<string, boolean>;
+    query?: string;
 }) {
     const { data, isLoading } = useConversations();
     const myId = getMyUserId();
+
+    const filteredData = useMemo(() => {
+        if (!data) return [];
+        const q = query.toLowerCase().trim();
+        if (!q) return data;
+        return data.filter((conv) => {
+            const otherUser = getOtherUser(conv, myId);
+            if (!otherUser) return false;
+            const displayName = (otherUser.displayName ?? "").toLowerCase();
+            const username = (otherUser.username ?? "").toLowerCase();
+            return displayName.includes(q) || username.includes(q);
+        });
+    }, [data, query, myId]);
 
     if (isLoading) {
         return (
@@ -181,16 +196,18 @@ export default function ChatList({
         );
     }
 
-    if (!data || data.length === 0) {
+    if (!filteredData || filteredData.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center px-6">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-elevated">
                     <MessageSquare className="h-6 w-6 text-muted-foreground" strokeWidth={1.5} />
                 </div>
                 <div>
-                    <p className="text-[13px] font-medium text-foreground">No conversations yet</p>
+                    <p className="text-[13px] font-medium text-foreground">
+                        {query ? "No matches found" : "No conversations yet"}
+                    </p>
                     <p className="text-[12px] text-muted-foreground mt-0.5">
-                        Search for people and start chatting
+                        {query ? "Try checking spelling or search username" : "Search for people and start chatting"}
                     </p>
                 </div>
             </div>
@@ -199,7 +216,7 @@ export default function ChatList({
 
     return (
         <div className="flex flex-col gap-1">
-            {data.map((conv) => (
+            {filteredData.map((conv) => (
                 <ConversationRow
                     key={conv.id}
                     conv={conv}

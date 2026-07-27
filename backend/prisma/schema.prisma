@@ -232,6 +232,12 @@ model Message {
   hiddenBy MessageHide[]
   savedIn  CollectionItem[]
 
+  isForwarded     Boolean @default(false)
+  forwardedFromId String?
+
+  forwardedFrom   Message?  @relation("ForwardedMessages", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  forwardedCopies Message[] @relation("ForwardedMessages")
+
   @@index([conversationId, deletedAt])
   @@index([restoreUntil])
 }

@@ -26,6 +26,7 @@ import { getAccessToken } from "@/lib/token";
 import { useSearchParams } from "next/navigation";
 import { playSound } from "@/lib/sounds";
 import Image from "next/image";
+import { NewChatModal } from "@/components/modal/new-chat.modal";
 
 
 type Connection = {
@@ -69,6 +70,7 @@ function ChatPageContent() {
   const [typingConversations, setTypingConversations] = useState<Record<string, boolean>>({});
   const [socketError, setSocketError] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [newChatOpen, setNewChatOpen] = useState(false);
 
   const searchParams = useSearchParams();
   const convId = searchParams.get("convId");
@@ -305,6 +307,27 @@ function ChatPageContent() {
 
   return (
     <div className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-background text-foreground md:static md:h-screen">
+        <NewChatModal
+          open={newChatOpen}
+          onClose={() => setNewChatOpen(false)}
+          onStartChat={(friend) => {
+            handleMessage({
+              id: friend.id,
+              name: friend.displayName,
+              username: friend.username,
+              bio: "",
+              mutualCount: 0,
+              online: false,
+              isPublic: true,
+              joinedDate: "now",
+              connectionsCount: 0,
+              tags: [],
+              accentColor: "oklch(0.65 0.18 280)",
+            });
+          }}
+          onGoToGlobalSearch={() => setSidebarTab("connections")}
+        />
+
         <aside
           className={cn(
             "md:flex md:w-[320px] md:shrink-0 md:flex-col md:border-r md:rounded-tr-2xl md:border-border md:bg-surface-secondary",
@@ -361,7 +384,10 @@ function ChatPageContent() {
                 <div className="mb-4 flex items-center justify-between">
                   <h1 className="font-display text-[20px] font-semibold tracking-tight">Inbox</h1>
                   <div className="flex items-center gap-1">
-                    <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground">
+                    <button
+                      onClick={() => setNewChatOpen(true)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                    >
                       <Plus className="h-4 w-4" strokeWidth={1.75} />
                     </button>
                   </div>
@@ -384,6 +410,7 @@ function ChatPageContent() {
                   activeId={activeId ?? undefined}
                   onSelect={(conv) => selectConversation(conv.id)}
                   typingConversations={typingConversations}
+                  query={query}
                 />
               </div>
             </>

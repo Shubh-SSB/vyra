@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Message } from "@/types/message";
 import {
     Check, CheckCheck, Plus, SmilePlus, CornerUpLeft,
-    ChevronDown, Pencil, Trash2, EyeOff, Trash, AlertTriangle, Bookmark
+    ChevronDown, Pencil, Trash2, EyeOff, Trash, AlertTriangle, Bookmark, Forward, MousePointerClick
 } from "lucide-react";
 import { SaveToCollectionModal } from "./save-to-collection-modal";
 
@@ -274,6 +274,11 @@ type Props = {
     onDeleteForMe: (messageId: string) => void;
     onDeleteForEveryone: (messageId: string) => void;
     onHide: (messageId: string) => void;
+    onForward: (message: Message) => void;
+    selectionMode: boolean;
+    isSelected: boolean;
+    onToggleSelect: (messageId: string) => void;
+    onEnterSelectMode: (messageId: string) => void;
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -281,8 +286,31 @@ type Props = {
 function ChatMessage({
     message, isOwn, grouped, isRead, myUserId,
     sendReaction, onReply, onEdit,
-    onDeleteForMe, onDeleteForEveryone, onHide,
+    onDeleteForMe, onDeleteForEveryone, onHide, onForward,
+    selectionMode, isSelected, onToggleSelect, onEnterSelectMode,
 }: Props) {
+    // Swipe gestures
+    const touchStart = useRef<{ x: number; y: number } | null>(null);
+    const [swipeX, setSwipeX] = useState(0);
+    const swipeTriggered = useRef(false);
+
+    // Double tap tracking
+    const lastTap = useRef<number>(0);
+    const tapTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Long-press to enter selection mode
+    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handlePointerDown = () => {
+        longPressTimer.current = setTimeout(() => {
+            if (!selectionMode) onEnterSelectMode(message.id);
+        }, 500);
+    };
+
+    const handlePointerUp = () => {
+        if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    };
+
     const [showPicker, setShowPicker] = useState(false);
     const [showCustomGrid, setShowCustomGrid] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
@@ -310,10 +338,56 @@ function ChatMessage({
         setShowPicker(!showPicker);
     };
 
-    const handleBubbleClick = () => {
-        if (typeof window !== "undefined" && window.innerWidth < 768) {
-            handleOpenPicker();
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (selectionMode || isDeleted) return;
+        const touch = e.touches[0];
+        touchStart.current = { x: touch.clientX, y: touch.clientY };
+        swipeTriggered.current = false;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!touchStart.current || swipeTriggered.current) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchStart.current.x;
+        const dy = touch.clientY - touchStart.current.y;
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+            const val = dx * 0.45;
+            setSwipeX(val);
+
+            if (dx > 100) {
+                swipeTriggered.current = true;
+                setSwipeX(0);
+                onReply(message);
+                if (window.navigator?.vibrate) window.navigator.vibrate(15);
+            } else if (dx < -100) {
+                swipeTriggered.current = true;
+                setSwipeX(0);
+                confirmHide();
+                if (window.navigator?.vibrate) window.navigator.vibrate(15);
+            }
         }
+    };
+
+    const handleTouchEnd = () => {
+        touchStart.current = null;
+        setSwipeX(0);
+    };
+
+    const handleBubbleTap = (e: React.MouseEvent) => {
+        if (selectionMode || isDeleted) return;
+        const now = Date.now();
+        const DOUBLE_TAP_DELAY = 280;
+
+        if (now - lastTap.current < DOUBLE_TAP_DELAY) {
+            if (tapTimeout.current) clearTimeout(tapTimeout.current);
+            setShowMenu(true);
+        } else {
+            tapTimeout.current = setTimeout(() => {
+                handleOpenPicker();
+            }, DOUBLE_TAP_DELAY);
+        }
+        lastTap.current = now;
     };
 
     const closeMenu = useCallback(() => setShowMenu(false), []);
@@ -357,9 +431,13 @@ function ChatMessage({
         });
     };
 
+    // Click bubble in selection mode toggles selection
+    const handleBubbleSelectClick = (e: React.MouseEvent) => {
+        if (selectionMode) { e.stopPropagation(); onToggleSelect(message.id); }
+    };
+
     return (
         <>
-            {/* ── Confirmation Modal (portaled to body) ── */}
             <ConfirmModal
                 open={!!confirm}
                 title={confirm?.label ?? ""}
@@ -367,11 +445,10 @@ function ChatMessage({
                 icon={confirm?.icon}
                 confirmLabel={confirm?.label ?? "Confirm"}
                 confirmVariant={confirm?.variant ?? "red"}
-                onConfirm={confirm?.onConfirm ?? (() => {})}
+                onConfirm={confirm?.onConfirm ?? (() => { })}
                 onCancel={() => setConfirm(null)}
             />
 
-            {/* ── Hide Toast (portaled to body) ── */}
             {typeof window !== "undefined" && createPortal(
                 <AnimatePresence>
                     {showHideToast && (
@@ -417,12 +494,39 @@ function ChatMessage({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.16, ease: "easeOut" }}
+                onPointerDown={handlePointerDown}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerUp}
+                onClick={handleBubbleSelectClick}
                 className={cn(
                     "flex w-full items-end gap-2 group relative transition-colors duration-500 rounded-2xl",
                     isOwn ? "justify-end" : "justify-start",
-                    grouped ? "mt-1" : "mt-5"
+                    grouped ? "mt-1" : "mt-5",
+                    selectionMode && "cursor-pointer",
+                    isSelected && "bg-white/[0.06]"
                 )}
             >
+                <AnimatePresence>
+                    {selectionMode && (
+                        <motion.div
+                            key="select-check"
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width: 24, opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className={cn("shrink-0 flex items-center justify-center mb-2", isOwn && "order-last ml-1")}
+                        >
+                            <div onClick={(e) => { e.stopPropagation(); onToggleSelect(message.id); }}
+                                className={cn(
+                                    "h-5 w-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all",
+                                    isSelected ? "bg-emerald-500 border-emerald-500" : "border-white/30 bg-transparent"
+                                )}
+                            >
+                                {isSelected && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
                 {showPicker && (
                     <div
                         className="fixed inset-0 z-20 cursor-default"
@@ -430,7 +534,6 @@ function ChatMessage({
                     />
                 )}
 
-                {/* ── Reaction / Reply triggers (left side for own messages) ── */}
                 {isOwn && (
                     <div className={cn(
                         "opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 mb-1 flex items-center gap-1",
@@ -472,56 +575,71 @@ function ChatMessage({
                                 <ChevronDown className="h-5 w-5" strokeWidth={3} />
                             </button>
 
-                            {/* ── Position-Aware Portal Dropdown ── */}
-                            <ContextMenu
-                                open={showMenu}
-                                anchorRef={menuBtnRef}
-                                onClose={closeMenu}
-                            >
-                                {canEdit && (
-                                    <>
-                                        <MenuItem
-                                            icon={<Pencil className="h-3.5 w-3.5" />}
-                                            label="Edit Message"
-                                            onClick={() => { onEdit(message); closeMenu(); }}
-                                        />
-                                        <MenuDivider />
-                                    </>
-                                )}
-
-                                {isOwn && (
+                            {showMenu && (
+                                <ContextMenu
+                                    open={showMenu}
+                                    anchorRef={menuBtnRef}
+                                    onClose={closeMenu}
+                                >
                                     <MenuItem
-                                        icon={<Trash2 className="h-3.5 w-3.5" />}
-                                        label="Delete for Everyone"
-                                        onClick={confirmDeleteForEveryone}
-                                        variant="danger"
+                                        icon={<MousePointerClick className="h-3.5 w-3.5" />}
+                                        label="Select"
+                                        onClick={() => { onEnterSelectMode(message.id); closeMenu(); }}
                                     />
-                                )}
 
-                                <MenuItem
-                                    icon={<Trash className="h-3.5 w-3.5" />}
-                                    label="Delete for Me"
-                                    onClick={confirmDeleteForMe}
-                                    variant="soft-danger"
-                                />
+                                    <MenuItem
+                                        icon={<Forward className="h-3.5 w-3.5" />}
+                                        label="Forward"
+                                        onClick={() => { onForward(message); closeMenu(); }}
+                                    />
 
-                                <MenuDivider />
+                                    <MenuDivider />
 
-                                <MenuItem
-                                    icon={<EyeOff className="h-3.5 w-3.5" />}
-                                    label="Hide"
-                                    onClick={confirmHide}
-                                />
+                                    {canEdit && (
+                                        <>
+                                            <MenuItem
+                                                icon={<Pencil className="h-3.5 w-3.5" />}
+                                                label="Edit Message"
+                                                onClick={() => { onEdit(message); closeMenu(); }}
+                                            />
+                                            <MenuDivider />
+                                        </>
+                                    )}
 
-                                <MenuItem
-                                    icon={<Bookmark className="h-3.5 w-3.5" />}
-                                    label="Save to Collection"
-                                    onClick={() => {
-                                        setShowCollectionModal(true);
-                                        closeMenu();
-                                    }}
-                                />
-                            </ContextMenu>
+                                    {isOwn && (
+                                        <MenuItem
+                                            icon={<Trash2 className="h-3.5 w-3.5" />}
+                                            label="Delete for Everyone"
+                                            onClick={confirmDeleteForEveryone}
+                                            variant="danger"
+                                        />
+                                    )}
+
+                                    <MenuItem
+                                        icon={<Trash className="h-3.5 w-3.5" />}
+                                        label="Delete for Me"
+                                        onClick={confirmDeleteForMe}
+                                        variant="soft-danger"
+                                    />
+
+                                    <MenuDivider />
+
+                                    <MenuItem
+                                        icon={<EyeOff className="h-3.5 w-3.5" />}
+                                        label="Hide"
+                                        onClick={confirmHide}
+                                    />
+
+                                    <MenuItem
+                                        icon={<Bookmark className="h-3.5 w-3.5" />}
+                                        label="Save to Collection"
+                                        onClick={() => {
+                                            setShowCollectionModal(true);
+                                            closeMenu();
+                                        }}
+                                    />
+                                </ContextMenu>
+                            )}
                         </>
                     )}
 
@@ -592,9 +710,16 @@ function ChatMessage({
 
                     {/* ── Message Bubble ── */}
                     <div
-                        onClick={handleBubbleClick}
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        onClick={handleBubbleTap}
+                        style={{
+                            transform: `translateX(${swipeX}px)`,
+                            transition: swipeX === 0 ? "transform 0.25s cubic-bezier(0.23, 1, 0.32, 1)" : "none"
+                        }}
                         className={cn(
-                            "break-words px-4 py-2.5 text-[14px] leading-[1.55] md:cursor-default cursor-pointer select-none flex flex-col gap-1.5",
+                            "break-words px-4 py-2.5 text-[14px] leading-[1.55] md:cursor-default cursor-pointer select-none flex flex-col gap-1.5 touch-pan-y",
                             isOwn
                                 ? "rounded-2xl rounded-tr-sm bg-foreground text-background animate-message-fade-in"
                                 : "rounded-2xl rounded-tl-sm bg-main/50 backdrop-blur-xs text-foreground"
@@ -625,6 +750,16 @@ function ChatMessage({
                                     {message.replyTo.content}
                                 </span>
                             </div>
+                        )}
+                        {/* ── Forwarded Label ── */}
+                        {message.isForwarded && (
+                            <span className={cn(
+                                "flex items-center gap-1 text-[10px] font-medium opacity-60 -mb-0.5",
+                                isOwn ? "text-background/70" : "text-muted-foreground"
+                            )}>
+                                <Forward className="h-2.5 w-2.5 shrink-0" />
+                                Forwarded
+                            </span>
                         )}
                         <span>{message.content}</span>
                         <div className={cn(
@@ -730,6 +865,8 @@ export default memo(ChatMessage, (prevProps, nextProps) => {
         prevProps.isOwn === nextProps.isOwn &&
         prevProps.grouped === nextProps.grouped &&
         prevProps.isRead === nextProps.isRead &&
-        prevProps.myUserId === nextProps.myUserId
+        prevProps.myUserId === nextProps.myUserId &&
+        prevProps.selectionMode === nextProps.selectionMode &&
+        prevProps.isSelected === nextProps.isSelected
     );
 });

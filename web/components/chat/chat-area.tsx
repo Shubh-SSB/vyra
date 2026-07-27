@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { MessageService } from "@/services/message.service";
 import ChatHeader from "./chat-header";
 import ChatThread from "./chat-thread";
 import ChatComposer from "./chat-composer";
+import { ForwardMessageModal } from "./forward-message-modal";
 
 function getMyUserId(): string | null {
     try {
@@ -71,6 +72,31 @@ export default function ChatArea({
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
+    // ─── Selection State ─────────────────────────────────────────────────────
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [forwardModalOpen, setForwardModalOpen] = useState(false);
+    const [forwardMessageIds, setForwardMessageIds] = useState<string[]>([]);
+
+    const enterSelectMode = useCallback((firstId: string) => {
+        setSelectionMode(true);
+        setSelectedIds(new Set([firstId]));
+    }, []);
+
+    const exitSelectMode = useCallback(() => {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+    }, []);
+
+    const toggleSelect = useCallback((id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
+
     const handleEdit = (message: Message) => {
         setReplyingTo(null);
         setEditingMessage(message);
@@ -80,6 +106,7 @@ export default function ChatArea({
     useEffect(() => {
         setReplyingTo(null);
         setEditingMessage(null);
+        exitSelectMode();
     }, [conversationId]);
 
     const updateEditedMessageInCache = (
@@ -200,16 +227,16 @@ export default function ChatArea({
         });
     };
 
-    const handleDeleteForMe = async (messageId: string) => {
+    const handleDeleteForMe = useCallback(async (messageId: string) => {
         try {
             await MessageService.deleteForMe(messageId);
             removeMessageFromCache(messageId); // immediately remove from UI
         } catch (error: any) {
             setSocketError(error.message ?? 'Failed to delete message');
         }
-    };
+    }, [conversationId, queryClient]);
 
-    const handleDeleteForEveryone = async (messageId: string) => {
+    const handleDeleteForEveryone = useCallback(async (messageId: string) => {
         try {
             await MessageService.deleteForEveryone(messageId);
             markMessageDeleted(messageId); // mark as deleted in UI
@@ -217,16 +244,64 @@ export default function ChatArea({
         } catch (error: any) {
             setSocketError(error.message ?? 'Failed to delete message');
         }
-    };
+    }, [conversationId, queryClient]);
 
-    const handleHide = async (messageId: string) => {
+    const handleHide = useCallback(async (messageId: string) => {
         try {
             await MessageService.hideMessage(messageId);
             removeMessageFromCache(messageId); // just remove from this user's view
         } catch (error: any) {
             setSocketError(error.message ?? 'Failed to hide message');
         }
-    };
+    }, [conversationId, queryClient]);
+
+    // ─── Bulk Handlers ───────────────────────────────────────────────────────
+    const handleBulkDeleteForMe = useCallback(async () => {
+        const ids = Array.from(selectedIds);
+        try {
+            await MessageService.bulkDeleteForMe(ids);
+            ids.forEach((id) => removeMessageFromCache(id));
+            exitSelectMode();
+        } catch (err: any) {
+            setSocketError(err?.message ?? 'Failed to delete messages');
+        }
+    }, [selectedIds, conversationId, queryClient, exitSelectMode]);
+
+    const handleBulkDeleteForEveryone = useCallback(async () => {
+        const ids = Array.from(selectedIds).filter((id) => {
+            const msg = historyMessages.find((m) => m.id === id);
+            return msg?.senderId === myUserId;
+        });
+        try {
+            await MessageService.bulkDeleteForEveryone(ids);
+            ids.forEach((id) => markMessageDeleted(id));
+            exitSelectMode();
+        } catch (err: any) {
+            setSocketError(err?.message ?? 'Failed to delete messages');
+        }
+    }, [selectedIds, conversationId, queryClient, exitSelectMode, historyMessages, myUserId]);
+
+    const handleBulkHide = useCallback(async () => {
+        const ids = Array.from(selectedIds);
+        try {
+            await MessageService.bulkHideMessages(ids);
+            ids.forEach((id) => removeMessageFromCache(id));
+            exitSelectMode();
+        } catch (err: any) {
+            setSocketError(err?.message ?? 'Failed to hide messages');
+        }
+    }, [selectedIds, conversationId, queryClient, exitSelectMode]);
+
+    const handleBulkForward = useCallback(() => {
+        const ids = Array.from(selectedIds);
+        setForwardMessageIds(ids);
+        setForwardModalOpen(true);
+    }, [selectedIds]);
+
+    const handleForwardSingle = useCallback((message: Message) => {
+        setForwardMessageIds([message.id]);
+        setForwardModalOpen(true);
+    }, []);
 
 
 
@@ -256,6 +331,16 @@ export default function ChatArea({
             "md:flex",
             mobileView === "chat" ? "flex" : "hidden",
         )}>
+            <ForwardMessageModal
+                open={forwardModalOpen}
+                messageIds={forwardMessageIds}
+                onClose={() => { setForwardModalOpen(false); exitSelectMode(); }}
+                onSuccess={(count) => {
+                    // Optionally show a toast here
+                    console.log(`Forwarded to ${count} chat(s)`);
+                }}
+            />
+
             <ChatHeader
                 user={otherUser}
                 onBack={goBackToList}
@@ -279,6 +364,16 @@ export default function ChatArea({
                 onDeleteForMe={handleDeleteForMe}
                 onDeleteForEveryone={handleDeleteForEveryone}
                 onHide={handleHide}
+                onForward={handleForwardSingle}
+                selectionMode={selectionMode}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+                onEnterSelectMode={enterSelectMode}
+                onExitSelectMode={exitSelectMode}
+                onBulkDeleteForMe={handleBulkDeleteForMe}
+                onBulkDeleteForEveryone={handleBulkDeleteForEveryone}
+                onBulkHide={handleBulkHide}
+                onBulkForward={handleBulkForward}
             />
 
             {(connectionStatus !== "joined" || socketError) && (

@@ -1,10 +1,13 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import { Message } from "@/types/message";
 import ChatMessage from "./chat-message";
 import DateDivider, { getCalendarDateKey } from "./date-divider";
 import Lenis from "lenis";
+import { AnimatePresence, motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { EyeOff, Forward, Trash, Trash2, X } from "lucide-react";
 
 
 type Props = {
@@ -22,26 +25,45 @@ type Props = {
     onDeleteForMe: (messageId: string) => void;
     onDeleteForEveryone: (messageId: string) => void;
     onHide: (messageId: string) => void;
+    onForward: (message: Message) => void;
+    // Selection mode
+    selectionMode: boolean;
+    selectedIds: Set<string>;
+    onToggleSelect: (messageId: string) => void;
+    onEnterSelectMode: (messageId: string) => void;
+    onExitSelectMode: () => void;
+    onBulkDeleteForMe: () => void;
+    onBulkDeleteForEveryone: () => void;
+    onBulkHide: () => void;
+    onBulkForward: () => void;
 };
 
-export default function
-
-    ChatThread({
-        messages,
-        myUserId,
-        isLoading,
-        isTyping,
-        otherParticipantLastReadAt,
-        sendReaction,
-        onReply,
-        fetchNextPage,
-        hasNextPage,
-        isFetchingNextPage,
-        onEdit,
-        onDeleteForMe,
-        onDeleteForEveryone,
-        onHide
-    }: Props) {
+export default function ChatThread({
+    messages,
+    myUserId,
+    isLoading,
+    isTyping,
+    otherParticipantLastReadAt,
+    sendReaction,
+    onReply,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    onEdit,
+    onDeleteForMe,
+    onDeleteForEveryone,
+    onHide,
+    onForward,
+    selectionMode,
+    selectedIds,
+    onToggleSelect,
+    onEnterSelectMode,
+    onExitSelectMode,
+    onBulkDeleteForMe,
+    onBulkDeleteForEveryone,
+    onBulkHide,
+    onBulkForward,
+}: Props) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
@@ -50,9 +72,14 @@ export default function
     const prevLastMessageId = useRef<string | null>(null);
     const isNearBottomRef = useRef(true);
     const [unreadMessage, setUnreadMessage] = useState<Message | null>(null);
-    
 
     const lenisRef = useRef<Lenis | null>(null);
+
+    // Derived: are any selected messages by the current user
+    const selectedOwnCount = Array.from(selectedIds).filter((id) => {
+        const msg = messages.find((m) => m.id === id);
+        return msg?.senderId === myUserId;
+    }).length;
 
     // Initialize Lenis manually on the custom scroll container
     useEffect(() => {
@@ -233,6 +260,11 @@ export default function
                                         onDeleteForMe={onDeleteForMe}
                                         onDeleteForEveryone={onDeleteForEveryone}
                                         onHide={onHide}
+                                        onForward={onForward}
+                                        selectionMode={selectionMode}
+                                        isSelected={selectedIds.has(msg.id)}
+                                        onToggleSelect={onToggleSelect}
+                                        onEnterSelectMode={onEnterSelectMode}
                                     />
                                 </React.Fragment>
                             );
@@ -255,7 +287,7 @@ export default function
                 </div>
             </div>
 
-            {unreadMessage && (
+            {unreadMessage && !selectionMode && (
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 animate-fade-in">
                     <button
                         onClick={handleScrollToBottom}
@@ -272,6 +304,89 @@ export default function
                     </button>
                 </div>
             )}
+
+            {/* ── Floating Bulk Action Bar ── */}
+            <AnimatePresence>
+                {selectionMode && (
+                    <motion.div
+                        key="bulk-bar"
+                        initial={{ y: 80, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 80, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                        className="absolute bottom-0 inset-x-0 z-30 flex items-center gap-2 px-4 py-3 bg-[#18181b]/95 backdrop-blur-xl border-t border-white/[0.08] shadow-2xl"
+                    >
+                        {/* Cancel */}
+                        <button
+                            onClick={onExitSelectMode}
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.07] hover:bg-white/[0.12] text-muted-foreground hover:text-foreground transition cursor-pointer"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+
+                        {/* Count */}
+                        <span className="text-[13px] font-semibold text-foreground mr-auto">
+                            {selectedIds.size} selected
+                        </span>
+
+                        {/* Forward */}
+                        <button
+                            onClick={onBulkForward}
+                            disabled={selectedIds.size === 0}
+                            title="Forward"
+                            className={cn(
+                                "flex h-9 w-9 items-center justify-center rounded-full transition cursor-pointer",
+                                selectedIds.size > 0
+                                    ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
+                                    : "opacity-30 cursor-not-allowed bg-white/[0.04] text-muted-foreground"
+                            )}
+                        >
+                            <Forward className="h-4 w-4" />
+                        </button>
+
+                        {/* Hide */}
+                        <button
+                            onClick={onBulkHide}
+                            disabled={selectedIds.size === 0}
+                            title="Hide"
+                            className={cn(
+                                "flex h-9 w-9 items-center justify-center rounded-full transition cursor-pointer",
+                                selectedIds.size > 0
+                                    ? "bg-white/[0.07] text-muted-foreground hover:bg-white/[0.12] hover:text-foreground"
+                                    : "opacity-30 cursor-not-allowed bg-white/[0.04] text-muted-foreground"
+                            )}
+                        >
+                            <EyeOff className="h-4 w-4" />
+                        </button>
+
+                        {/* Delete for Everyone (own messages only) */}
+                        {selectedOwnCount > 0 && (
+                            <button
+                                onClick={onBulkDeleteForEveryone}
+                                title="Delete for Everyone"
+                                className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500/15 text-red-400 hover:bg-red-500/25 transition cursor-pointer"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        )}
+
+                        {/* Delete for Me */}
+                        <button
+                            onClick={onBulkDeleteForMe}
+                            disabled={selectedIds.size === 0}
+                            title="Delete for Me"
+                            className={cn(
+                                "flex h-9 w-9 items-center justify-center rounded-full transition cursor-pointer",
+                                selectedIds.size > 0
+                                    ? "bg-red-500/10 text-red-400/70 hover:bg-red-500/20 hover:text-red-400"
+                                    : "opacity-30 cursor-not-allowed bg-white/[0.04] text-muted-foreground"
+                            )}
+                        >
+                            <Trash className="h-4 w-4" />
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

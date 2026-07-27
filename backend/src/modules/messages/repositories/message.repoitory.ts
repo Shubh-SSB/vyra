@@ -287,4 +287,91 @@ export class MessageRepository {
         });
         return !!record;
     }
-}
+
+    async createForwarded(data: {
+        content: string;
+        senderId: string;
+        conversationId: string;
+        forwardedFromId: string;
+    }) {
+        return this.prisma.message.create({
+            data: {
+                content: data.content,
+                isForwarded: true,
+                forwardedFromId: data.forwardedFromId,
+                senderId: data.senderId,
+                conversationId: data.conversationId,
+            },
+            include: {
+                sender: {
+                    select: { id: true, username: true, displayName: true },
+                },
+            },
+        });
+    }
+
+    async bulkDeleteForMe(messageIds: string[], userId: string) {
+        // Filter to messages that belong to conversations the user is in
+        // We soft-hide them by inserting MessageHide records
+        const existing = await this.prisma.messageHide.findMany({
+            where: { userId, messageId: { in: messageIds } },
+            select: { messageId: true },
+        });
+        const existingIds = new Set(existing.map((e) => e.messageId));
+        const toCreate = messageIds.filter((id) => !existingIds.has(id));
+
+        if (toCreate.length > 0) {
+            await this.prisma.messageHide.createMany({
+                data: toCreate.map((messageId) => ({ messageId, userId })),
+                skipDuplicates: true,
+            });
+        }
+        return { count: toCreate.length };
+    }
+
+    async bulkDeleteForEveryone(messageIds: string[], senderId: string) {
+        const result = await this.prisma.message.updateMany({
+            where: {
+                id: { in: messageIds },
+                senderId,
+                deletedAt: null,
+            },
+            data: {
+                deletedAt: new Date(),
+                deleteById: senderId,
+                content: 'This message is no longer available.',
+            },
+        });
+        return result;
+    }
+
+    async bulkHideForMe(messageIds: string[], userId: string) {
+        const existing = await this.prisma.messageHide.findMany({
+            where: { userId, messageId: { in: messageIds } },
+            select: { messageId: true },
+        });
+        const existingIds = new Set(existing.map((e) => e.messageId));
+        const toCreate = messageIds.filter((id) => !existingIds.has(id));
+
+        if (toCreate.length > 0) {
+            await this.prisma.messageHide.createMany({
+                data: toCreate.map((messageId) => ({ messageId, userId })),
+                skipDuplicates: true,
+            });
+        }
+        return { count: toCreate.length };
+    }
+
+    async findManyByIds(messageIds: string[]) {
+        return this.prisma.message.findMany({
+            where: { id: { in: messageIds } },
+            select: {
+                id: true,
+                content: true,
+                conversationId: true,
+                senderId: true,
+                deletedAt: true,
+            },
+        });
+    }
+}
