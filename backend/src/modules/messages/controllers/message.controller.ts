@@ -221,4 +221,60 @@ export class MessagesController {
         const result = await this.messagesService.unhideMessage(req.user.id, messageId);
         return ApiResponseUtil.success(result, "Message unhidden successfully");
     }
+
+    @Get(":conversationId/pinned")
+    async getPinnedMessages(
+        @Req() req,
+        @Param("conversationId") conversationId: string,
+    ) {
+        const messages = await this.messagesService.getPinnedMessages(
+            req.user.id,
+            conversationId,
+        );
+        return ApiResponseUtil.success(messages, "Pinned messages fetched successfully");
+    }
+
+    @Post(":messageId/pin")
+    async pinMessage(
+        @Req() req,
+        @Param("messageId") messageId: string,
+        @Body() dto: { pinnedDuration?: string },
+    ) {
+        const message = await this.messagesService.pinMessage(
+            req.user.id,
+            messageId,
+            dto.pinnedDuration,
+        );
+
+        this.chatGateway.broadcastMessagePinUpdated(
+            message.conversationId,
+            message.id,
+            true,
+            message.pinnedDuration,
+            message.pinnedBy,
+        );
+
+        return ApiResponseUtil.success(message, "Message pinned successfully");
+    }
+
+    @Delete(":messageId/pin")
+    async unpinMessage(
+        @Req() req,
+        @Param("messageId") messageId: string,
+    ) {
+        const result = await this.messagesService.unpinMessage(
+            req.user.id,
+            messageId,
+        );
+
+        this.chatGateway.broadcastMessagePinUpdated(
+            result.conversationId,
+            result.messageId,
+            false,
+            null,
+            null,
+        );
+
+        return ApiResponseUtil.success(result, "Message unpinned successfully");
+    }
 }

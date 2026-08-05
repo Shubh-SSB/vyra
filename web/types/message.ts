@@ -53,4 +53,12 @@ export type Message = {
     replyToId?: string | null;
     replyTo?: Message | null;
     savedIn?: { collectionId: string }[];
+    isPinned?: boolean;
+    pinnedDuration?: string | null;
+    pinnedById?: string | null;
+    pinnedBy?: {
+        id: string;
+        username: string;
+        displayName: string;
+    } | null;
 };

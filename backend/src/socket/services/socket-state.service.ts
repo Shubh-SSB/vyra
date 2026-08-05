@@ -28,6 +28,11 @@ export class SocketStateService {
         return sockets && sockets.size > 0 ? Array.from(sockets)[0] : undefined;
     }
 
+    getSockets(userId: string): Socket[] {
+        const sockets = this.users.get(userId);
+        return sockets ? Array.from(sockets) : [];
+    }
+
     getAllUsers() {
         // Return a map of userId to any of their sockets (for backwards compatibility/inspection if needed)
         const activeUsers = new Map<string, Socket>();

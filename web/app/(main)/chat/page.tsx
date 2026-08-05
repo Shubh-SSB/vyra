@@ -4,12 +4,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Search,
-  Pin,
-  Archive,
   Settings,
   Plus,
   Users,
-  MessageSquare,
+  MessageCircle,
 } from "lucide-react";
 import { VyraIcon, VyraMark, VyraWordmark } from "@/components/vyra/logo";
 import { cn } from "@/lib/utils";
@@ -19,6 +17,7 @@ import ChatList from "@/components/chat/chat-list";
 import ChatArea from "@/components/chat/chat-area";
 import UserProfile from "@/components/chat/user-profile";
 import { ConversationService } from "@/services/conversation.service";
+import { NotificationService } from "@/services/notification.service";
 import { useConversations } from "@/tanstack/queries/conversation.query";
 import { useMe } from "@/tanstack/queries/auth.query";
 import { useChatSocket } from "@/hooks/use-chat-socket";
@@ -82,6 +81,25 @@ function ChatPageContent() {
       setMobileView("chat");
     }
   }, [convId]);
+
+  useEffect(() => {
+    if (activeId) {
+      sessionStorage.setItem("activeConversationId", activeId);
+      NotificationService.clearConversationNotifications(activeId)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        })
+        .catch((err) => {
+          console.warn("Failed to clear notifications for conversation:", err);
+        });
+    } else {
+      sessionStorage.removeItem("activeConversationId");
+    }
+
+    return () => {
+      sessionStorage.removeItem("activeConversationId");
+    };
+  }, [activeId, queryClient]);
 
   const { data: conversations } = useConversations();
   const { data: meResponse } = useMe();
@@ -191,8 +209,10 @@ function ChatPageContent() {
       queryClient.setQueryData<any[]>(["conversations"], (current = []) => {
         return current.map((conv) => {
           if (conv.id !== conversationId) return conv;
+          const isMe = userId === myUserId;
           return {
             ...conv,
+            unreadCount: isMe ? 0 : conv.unreadCount,
             participants: conv.participants.map((part: any) => {
               if (part.userId !== userId) return part;
               return { ...part, lastReadAt };
@@ -313,194 +333,196 @@ function ChatPageContent() {
 
   return (
     <div className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-background text-foreground md:static md:h-screen">
-        <NewChatModal
-          open={newChatOpen}
-          onClose={() => setNewChatOpen(false)}
-          onStartChat={(friend) => {
-            handleMessage({
-              id: friend.id,
-              name: friend.displayName,
-              username: friend.username,
-              bio: "",
-              mutualCount: 0,
-              online: false,
-              isPublic: true,
-              joinedDate: "now",
-              connectionsCount: 0,
-              tags: [],
-              accentColor: "oklch(0.65 0.18 280)",
-            });
-          }}
-          onGoToGlobalSearch={() => setSidebarTab("connections")}
-        />
+      <NewChatModal
+        open={newChatOpen}
+        onClose={() => setNewChatOpen(false)}
+        onStartChat={(friend) => {
+          handleMessage({
+            id: friend.id,
+            name: friend.displayName,
+            username: friend.username,
+            bio: "",
+            mutualCount: 0,
+            online: false,
+            isPublic: true,
+            joinedDate: "now",
+            connectionsCount: 0,
+            tags: [],
+            accentColor: "oklch(0.65 0.18 280)",
+          });
+        }}
+        onGoToGlobalSearch={() => setSidebarTab("connections")}
+      />
 
-        <aside
-          className={cn(
-            "md:flex md:w-[320px] md:shrink-0 md:flex-col md:border-r md:rounded-tr-2xl md:border-border md:bg-surface-secondary",
-            mobileView === "list"
-              ? "flex w-full flex-col bg-surface-secondary md:w-[320px]"
-              : "hidden",
-          )}
-        >
-          {/* Mobile Top Bar */}
-          <div className="flex h-14 items-center justify-between border-b border-border bg-[#0e0e10]/80 backdrop-blur-md px-5 md:hidden shrink-0">
-            <VyraWordmark />
-            <Link
-              href="/settings"
-              title="Settings"
-              aria-label="Settings"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+      <aside
+        className={cn(
+          "md:flex md:w-[320px] md:shrink-0 md:flex-col md:border-r md:rounded-tr-2xl md:border-border md:bg-surface-secondary",
+          mobileView === "list"
+            ? "flex w-full flex-col bg-surface-secondary md:w-[320px]"
+            : "hidden",
+        )}
+      >
+        {/* Mobile Top Bar */}
+        <div className="flex h-14 items-center justify-between border-b border-border bg-[#0e0e10]/80 backdrop-blur-md px-5 md:hidden shrink-0">
+          <VyraIcon />
+          <Link
+            href="/settings"
+            title="Settings"
+            aria-label="Settings"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+          >
+            <Settings className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+        </div>
+
+        <div className="px-5 pt-5">
+          <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
+            <button
+              onClick={() => setSidebarTab("chats")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-medium transition-colors",
+                sidebarTab === "chats"
+                  ? "bg-surface-elevated text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              <Settings className="h-4 w-4" strokeWidth={1.75} />
-            </Link>
+              <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Chats
+            </button>
+            <button
+              onClick={() => setSidebarTab("connections")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-medium transition-colors",
+                sidebarTab === "connections"
+                  ? "bg-surface-elevated text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Connections
+            </button>
           </div>
+        </div>
 
-          <div className="px-5 pt-5">
-            <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
-              <button
-                onClick={() => setSidebarTab("chats")}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-md font-medium transition-colors",
-                  sidebarTab === "chats"
-                    ? "bg-surface-elevated text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Chats
-              </button>
-              <button
-                onClick={() => setSidebarTab("connections")}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-md font-medium transition-colors",
-                  sidebarTab === "connections"
-                    ? "bg-surface-elevated text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Connections
-              </button>
-            </div>
-          </div>
-
-          {sidebarTab === "chats" && (
-            <>
-              <div className="px-5 pt-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <h1 className="font-display text-[20px] font-semibold tracking-tight">Inbox</h1>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setNewChatOpen(true)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
-                    >
-                      <Plus className="h-4 w-4" strokeWidth={1.75} />
-                    </button>
-                  </div>
-                </div>
-                <div className="relative">
-                  <Search
-                    className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
-                    strokeWidth={1.75}
-                  />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search conversations"
-                    className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-4 text-[13px] font-medium text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
-                  />
+        {sidebarTab === "chats" && (
+          <>
+            <div className="px-5 pt-4">
+              <div className="mb-4 flex items-center justify-between">
+                <h1 className="font-display text-[20px] font-semibold tracking-tight">Inbox</h1>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setNewChatOpen(true)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                  >
+                    <Plus className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
                 </div>
               </div>
-              <div className="mt-4 flex-1 overflow-y-auto px-3 pb-6">
-                <ChatList
-                  activeId={activeId ?? undefined}
-                  onSelect={(conv) => selectConversation(conv.id)}
-                  typingConversations={typingConversations}
-                  query={query}
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                  strokeWidth={1.75}
+                />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search conversations"
+                  className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-4 text-[13px] font-medium text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
                 />
               </div>
-            </>
-          )}
+            </div>
+            <div className="mt-4 flex-1 overflow-y-auto px-3 pb-6">
+              <ChatList
+                activeId={activeId ?? undefined}
+                onSelect={(conv) => selectConversation(conv.id)}
+                typingConversations={typingConversations}
+                query={query}
+              />
+            </div>
+          </>
+        )}
 
-          {sidebarTab === "connections" && (
-            <SearchInput
-              onMessage={(user) => {
-                handleMessage({
-                  id: user.id,
-                  name: user.displayName,
-                  username: user.username,
-                  bio: user.bio || "",
-                  mutualCount: 0,
-                  online: false,
-                  isPublic: user.profileVisibility !== "PRIVATE",
-                  joinedDate: "now",
-                  connectionsCount: 0,
-                  tags: [],
-                  accentColor: "oklch(0.65 0.18 280)",
-                });
-              }}
-            />
-          )}
-        </aside>
-        <ChatArea
-          conversationId={activeId}
-          mobileView={mobileView}
-          goBackToList={goBackToList}
-          typingConversations={typingConversations}
-          connectionStatus={connectionStatus}
-          socketError={socketError}
-          setSocketError={setSocketError}
-          sendMessage={sendMessage}
-          sendTypingStart={sendTypingStart}
-          sendTypingStop={sendTypingStop}
-          sendReaction={sendReaction}
-          onToggleProfile={() => {
-            if (profileOpen) {
-              closeProfile();
-            } else {
-              openProfile();
-            }
-          }}
-          isFriend={isFriend}
-          myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
-        />
-        <AnimatePresence>
-          {profileOpen && activeId && (
-            <>
-              {/* PC Side Panel Drawer */}
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 380, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ type: "spring", stiffness: 180, damping: 22 }}
-                className="hidden lg:block lg:shrink-0 h-full overflow-hidden border-l border-border bg-background"
-              >
-                <div className="w-[380px] h-full">
-                  <UserProfile
-                    user={otherUser}
-                    onClose={closeProfile}
-                    onMessageClick={closeProfile}
-                  />
-                </div>
-              </motion.div>
-              {/* Mobile Fullscreen Overlay */}
-              <motion.div
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
-                transition={{ type: "spring", stiffness: 180, damping: 22 }}
-                className="fixed inset-0 z-50 lg:hidden w-full h-full"
-              >
+        {sidebarTab === "connections" && (
+          <SearchInput
+            onMessage={(user) => {
+              handleMessage({
+                id: user.id,
+                name: user.displayName,
+                username: user.username,
+                bio: user.bio || "",
+                mutualCount: 0,
+                online: false,
+                isPublic: user.profileVisibility !== "PRIVATE",
+                joinedDate: "now",
+                connectionsCount: 0,
+                tags: [],
+                accentColor: "oklch(0.65 0.18 280)",
+              });
+            }}
+          />
+
+
+        )}
+      </aside>
+      <ChatArea
+        conversationId={activeId}
+        mobileView={mobileView}
+        goBackToList={goBackToList}
+        typingConversations={typingConversations}
+        connectionStatus={connectionStatus}
+        socketError={socketError}
+        setSocketError={setSocketError}
+        sendMessage={sendMessage}
+        sendTypingStart={sendTypingStart}
+        sendTypingStop={sendTypingStop}
+        sendReaction={sendReaction}
+        onToggleProfile={() => {
+          if (profileOpen) {
+            closeProfile();
+          } else {
+            openProfile();
+          }
+        }}
+        isFriend={isFriend}
+        myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
+      />
+      <AnimatePresence>
+        {profileOpen && activeId && (
+          <>
+            {/* PC Side Panel Drawer */}
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 380, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 180, damping: 22 }}
+              className="hidden lg:block lg:shrink-0 h-full overflow-hidden border-l border-border bg-background"
+            >
+              <div className="w-[380px] h-full">
                 <UserProfile
                   user={otherUser}
                   onClose={closeProfile}
                   onMessageClick={closeProfile}
                 />
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </div>
+              </div>
+            </motion.div>
+            {/* Mobile Fullscreen Overlay */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 180, damping: 22 }}
+              className="fixed inset-0 z-50 lg:hidden w-full h-full"
+            >
+              <UserProfile
+                user={otherUser}
+                onClose={closeProfile}
+                onMessageClick={closeProfile}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

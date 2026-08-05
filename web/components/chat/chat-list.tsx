@@ -78,6 +78,20 @@ function ConversationRow({
             preview = lastMsg.content;
         } else if (lastMsg.type === "VOICE") {
             preview = <span className="flex items-center gap-1"><Mic className="h-3 w-3 shrink-0" /><span>Voice message</span></span>;
+        } else if (lastMsg.attachments && lastMsg.attachments.length > 0) {
+            const firstAttachment = lastMsg.attachments[0];
+            let label = "Attachment";
+            if (firstAttachment.type === "IMAGE") label = "Photo";
+            else if (firstAttachment.type === "VIDEO") label = "Video";
+            else if (firstAttachment.type === "DOCUMENT") label = "Document";
+            else if (firstAttachment.type === "VOICE") label = "Voice message";
+
+            preview = (
+                <span className="flex items-center gap-1 text-muted-foreground font-medium">
+                    <Paperclip className="h-3 w-3 shrink-0" />
+                    <span>{label}</span>
+                </span>
+            );
         } else if (lastMsg.type === "MEDIA") {
             preview = <span className="flex items-center gap-1"><Paperclip className="h-3 w-3 shrink-0" /><span>Attachment</span></span>;
         } else {
@@ -94,8 +108,8 @@ function ConversationRow({
             className={cn(
                 "group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-4 py-3 text-left transition-all duration-150 my-0.5",
                 active
-                    ? "ring-1 ring-border shadow-md bg-white/15"
-                    : "hover:bg-white/15"
+                    ? "border border-main/20 shadow-md bg-white/15 cursor-pointer"
+                    : "hover:bg-white/15 hover:border hover:border-main/20 cursor-pointer"
             )}
         >
             {/* Background Image & Overlay */}
@@ -132,7 +146,7 @@ function ConversationRow({
                         }}
                     />
                 ) : (
-                    <div 
+                    <div
                         className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-elevated text-[13px] font-semibold text-foreground ring-1 ring-border cursor-pointer"
                         onClick={(e) => {
                             e.stopPropagation();

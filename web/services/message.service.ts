@@ -49,5 +49,17 @@ export const MessageService = {
     bulkHideMessages(messageIds: string[]) {
         return $crud.post<{ count: number }>(`messages/bulk/hide`, { messageIds });
     },
+
+    pinMessage(messageId: string, pinnedDuration?: string | null) {
+        return $crud.post<Message>(`messages/${messageId}/pin`, { pinnedDuration });
+    },
+
+    unpinMessage(messageId: string) {
+        return $crud.delete<{ messageId: string; conversationId: string; isPinned: false }>(`messages/${messageId}/pin`);
+    },
+
+    getPinnedMessages(conversationId: string) {
+        return $crud.get<Message[]>(`messages/${conversationId}/pinned`);
+    },
 };
 

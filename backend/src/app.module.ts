@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AuthModule } from './modules/auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
@@ -11,12 +12,14 @@ import { SocketModule } from './socket/socket.module';
 import { FriendsModule } from './modules/friends/friends.module';
 import { CollectionsModule } from './modules/collections/collections.module';
 import { MediaModule } from './modules/media/media.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    EventEmitterModule.forRoot(),
 
     PrismaModule,
     AuthModule,
@@ -29,6 +32,7 @@ import { MediaModule } from './modules/media/media.module';
     FriendsModule,
     CollectionsModule,
     MediaModule,
+    NotificationsModule
   ]
 })
-export class AppModule {}
+export class AppModule { }

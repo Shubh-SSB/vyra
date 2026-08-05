@@ -2,17 +2,18 @@
 
 import { useEffect, useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Pin, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAccessToken } from "@/lib/token";
 import { Message } from "@/types/message";
-import { useInfiniteMessages } from "@/tanstack/queries/message.query";
+import { useInfiniteMessages, usePinnedMessages } from "@/tanstack/queries/message.query";
 import { useConversations } from "@/tanstack/queries/conversation.query";
 import { MessageService } from "@/services/message.service";
 import ChatHeader from "./chat-header";
 import ChatThread from "./chat-thread";
 import ChatComposer from "./chat-composer";
 import { ForwardMessageModal } from "./forward-message-modal";
+import MailAnimation from "./mail-animation";
 
 function getMyUserId(): string | null {
     try {
@@ -74,7 +75,17 @@ export default function ChatArea({
         hasNextPage,
         isFetchingNextPage,
     } = useInfiniteMessages(conversationId);
-    
+
+    const { data: pinnedMessages = [] } = usePinnedMessages(conversationId);
+    const [currentPinnedIndex, setCurrentPinnedIndex] = useState(0);
+
+    // Keep currentPinnedIndex within bounds when pinnedMessages list changes
+    useEffect(() => {
+        if (currentPinnedIndex >= pinnedMessages.length) {
+            setCurrentPinnedIndex(Math.max(0, pinnedMessages.length - 1));
+        }
+    }, [pinnedMessages.length, currentPinnedIndex]);
+
     const historyMessages = messagesData ? [...messagesData.pages].reverse().flat() : [];
     const { data: conversations } = useConversations();
     const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -170,9 +181,9 @@ export default function ChatArea({
         } catch (error: unknown) {
             const errorMessage =
                 error &&
-                typeof error === "object" &&
-                "message" in error &&
-                typeof error.message === "string"
+                    typeof error === "object" &&
+                    "message" in error &&
+                    typeof error.message === "string"
                     ? error.message
                     : "Unable to edit the message. Please try again.";
 
@@ -247,6 +258,26 @@ export default function ChatArea({
             removeMessageFromCache(messageId); // immediately remove from UI
         } catch (error: any) {
             setSocketError(error.message ?? 'Failed to delete message');
+        }
+    }, [conversationId, queryClient]);
+
+    const handlePin = useCallback(async (messageId: string, pinnedDuration?: string | null) => {
+        try {
+            await MessageService.pinMessage(messageId, pinnedDuration);
+            queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+            queryClient.invalidateQueries({ queryKey: ["pinnedMessages", conversationId] });
+        } catch (error: any) {
+            setSocketError(error.message ?? 'Failed to pin message');
+        }
+    }, [conversationId, queryClient]);
+
+    const handleUnpin = useCallback(async (messageId: string) => {
+        try {
+            await MessageService.unpinMessage(messageId);
+            queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+            queryClient.invalidateQueries({ queryKey: ["pinnedMessages", conversationId] });
+        } catch (error: any) {
+            setSocketError(error.message ?? 'Failed to unpin message');
         }
     }, [conversationId, queryClient]);
 
@@ -327,9 +358,7 @@ export default function ChatArea({
                 mobileView === "chat" ? "flex" : "hidden",
             )}>
                 <div className="flex flex-col items-center gap-3 text-center">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-elevated">
-                        <MessageSquare className="h-7 w-7 text-muted-foreground" strokeWidth={1.25} />
-                    </div>
+                    <MailAnimation size={150} scale={2.2} className="mb-2" />
                     <p className="text-[14px] font-medium">Select a conversation</p>
                     <p className="text-[12px] text-muted-foreground">
                         Choose from your chats to start messaging
@@ -341,86 +370,163 @@ export default function ChatArea({
 
     return (
         <main className={cn(
-            "min-w-0 flex-1 flex-col bg-background bg-chat-doodles overflow-hidden",
+            "relative min-w-0 flex-1 flex-col overflow-hidden",
             "md:flex",
             mobileView === "chat" ? "flex" : "hidden",
-        )}>
-            <ForwardMessageModal
-                open={forwardModalOpen}
-                messageIds={forwardMessageIds}
-                onClose={() => { setForwardModalOpen(false); exitSelectMode(); }}
-                onSuccess={(count) => {
-                    // Optionally show a toast here
-                    console.log(`Forwarded to ${count} chat(s)`);
-                }}
-            />
+        )}
+            style={{ backgroundImage: `url('/chat-bg-5.jpg')` }}>
+            {/* Unified dark overlay to dim the background image evenly across the chat history and composer */}
+            <div className="absolute inset-0 bg-black/95 pointer-events-none z-0" />
 
-            <ChatHeader
-                user={otherUser}
-                onBack={goBackToList}
-                onToggleContext={onToggleProfile ?? (() => { })}
-                isFriend={isFriend}
-                isTyping={otherUserTyping}
-                myShowLastSeen={myShowLastSeen}
-                selectionMode={selectionMode}
-                selectedCount={selectedIds.size}
-                onExitSelectMode={exitSelectMode}
-                onBulkDeleteForMe={handleBulkDeleteForMe}
-                onBulkDeleteForEveryone={handleBulkDeleteForEveryone}
-                onBulkHide={handleBulkHide}
-                onBulkForward={handleBulkForward}
-                selectedOwnCount={
-                    Array.from(selectedIds).filter((id) => {
-                        const msg = historyMessages.find((m) => m.id === id);
-                        return msg?.senderId === myUserId;
-                    }).length
-                }
-            />
+            <div className="relative z-10 flex flex-1 flex-col min-h-0 w-full h-full">
+                <ForwardMessageModal
+                    open={forwardModalOpen}
+                    messageIds={forwardMessageIds}
+                    onClose={() => { setForwardModalOpen(false); exitSelectMode(); }}
+                    onSuccess={(count) => {
+                        console.log(`Forwarded to ${count} chat(s)`);
+                    }}
+                />
 
-            <ChatThread
-                messages={historyMessages ?? []}
-                myUserId={myUserId}
-                isLoading={historyLoading}
-                isTyping={otherUserTyping}
-                otherParticipantLastReadAt={otherParticipant?.lastReadAt}
-                sendReaction={sendReaction}
-                onReply={setReplyingTo}
-                fetchNextPage={fetchNextPage}
-                hasNextPage={!!hasNextPage}
-                isFetchingNextPage={isFetchingNextPage}
-                onEdit={handleEdit}
-                onDeleteForMe={handleDeleteForMe}
-                onDeleteForEveryone={handleDeleteForEveryone}
-                onHide={handleHide}
-                onForward={handleForwardSingle}
-                selectionMode={selectionMode}
-                selectedIds={selectedIds}
-                onToggleSelect={toggleSelect}
-                onEnterSelectMode={enterSelectMode}
-                onExitSelectMode={exitSelectMode}
-                onBulkDeleteForMe={handleBulkDeleteForMe}
-                onBulkDeleteForEveryone={handleBulkDeleteForEveryone}
-                onBulkHide={handleBulkHide}
-                onBulkForward={handleBulkForward}
-            />
+                <ChatHeader
+                    user={otherUser}
+                    onBack={goBackToList}
+                    onToggleContext={onToggleProfile ?? (() => { })}
+                    isFriend={isFriend}
+                    isTyping={otherUserTyping}
+                    myShowLastSeen={myShowLastSeen}
+                    selectionMode={selectionMode}
+                    selectedCount={selectedIds.size}
+                    onExitSelectMode={exitSelectMode}
+                    onBulkDeleteForMe={handleBulkDeleteForMe}
+                    onBulkDeleteForEveryone={handleBulkDeleteForEveryone}
+                    onBulkHide={handleBulkHide}
+                    onBulkForward={handleBulkForward}
+                    selectedOwnCount={
+                        Array.from(selectedIds).filter((id) => {
+                            const msg = historyMessages.find((m) => m.id === id);
+                            return msg?.senderId === myUserId;
+                        }).length
+                    }
+                />
 
-            {(connectionStatus !== "joined" || socketError) && (
-                <p className="px-6 pb-2 text-center text-[11px] text-muted-foreground">
-                    {socketError ?? "Connecting to chat…"}
-                </p>
-            )}
+                {pinnedMessages.length > 0 && !selectionMode && (
+                    <div className="relative z-20 flex w-full items-center justify-between border-b border-border bg-[#18181b]/80 backdrop-blur px-6 py-2 animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex flex-1 items-center gap-3 min-w-0 select-none cursor-pointer" onClick={() => {
+                            const pinnedMsg = pinnedMessages[currentPinnedIndex];
+                            if (pinnedMsg) {
+                                const el = document.getElementById(`msg-${pinnedMsg.id}`);
+                                if (el) {
+                                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    el.classList.add("bg-emerald-500/10");
+                                    setTimeout(() => {
+                                        el.classList.remove("bg-emerald-500/10");
+                                    }, 2000);
+                                }
+                            }
+                        }}>
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+                                <Pin className="h-4 w-4 rotate-45" />
+                            </div>
+                            <div className="flex flex-col min-w-0 leading-tight">
+                                <p className="text-[11px] font-semibold text-emerald-400">
+                                    {pinnedMessages.length > 1 
+                                        ? `Pinned Message (${currentPinnedIndex + 1}/${pinnedMessages.length})` 
+                                        : "Pinned Message"}
+                                </p>
+                                <p className="text-xs text-foreground font-medium truncate max-w-[500px]">
+                                    <span className="text-muted-foreground mr-1">
+                                        {pinnedMessages[currentPinnedIndex]?.sender?.displayName}:
+                                    </span>
+                                    {pinnedMessages[currentPinnedIndex]?.content || (pinnedMessages[currentPinnedIndex]?.type === "VOICE" ? "Voice message" : "Attachment")}
+                                </p>
+                            </div>
+                        </div>
 
-            <ChatComposer
-                onSend={handleSend}
-                disabled={connectionStatus !== "joined"}
-                onTypingStart={() => conversationId && sendTypingStart(conversationId)}
-                onTypingStop={() => conversationId && sendTypingStop(conversationId)}
-                replyingTo={replyingTo}
-                onCancelReply={() => setReplyingTo(null)}
-                editingMessage={editingMessage}
-                onSaveEdit={handleSaveEdit}
-                onCancelEdit={() => setEditingMessage(null)}
-            />
+                        <div className="flex items-center gap-1 shrink-0 ml-4">
+                            {pinnedMessages.length > 1 && (
+                                <>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCurrentPinnedIndex((prev) => (prev - 1 + pinnedMessages.length) % pinnedMessages.length);
+                                        }}
+                                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/5 transition cursor-pointer"
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCurrentPinnedIndex((prev) => (prev + 1) % pinnedMessages.length);
+                                        }}
+                                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/5 transition cursor-pointer"
+                                    >
+                                        <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                </>
+                            )}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUnpin(pinnedMessages[currentPinnedIndex].id);
+                                }}
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
+                                title="Unpin"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <ChatThread
+                    messages={historyMessages ?? []}
+                    myUserId={myUserId}
+                    isLoading={historyLoading}
+                    isTyping={otherUserTyping}
+                    otherParticipantLastReadAt={otherParticipant?.lastReadAt}
+                    sendReaction={sendReaction}
+                    onReply={setReplyingTo}
+                    fetchNextPage={fetchNextPage}
+                    hasNextPage={!!hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
+                    onEdit={handleEdit}
+                    onDeleteForMe={handleDeleteForMe}
+                    onDeleteForEveryone={handleDeleteForEveryone}
+                    onHide={handleHide}
+                    onForward={handleForwardSingle}
+                    selectionMode={selectionMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onEnterSelectMode={enterSelectMode}
+                    onExitSelectMode={exitSelectMode}
+                    onBulkDeleteForMe={handleBulkDeleteForMe}
+                    onBulkDeleteForEveryone={handleBulkDeleteForEveryone}
+                    onBulkHide={handleBulkHide}
+                    onBulkForward={handleBulkForward}
+                    onPin={handlePin}
+                    onUnpin={handleUnpin}
+                />
+
+                {(connectionStatus !== "joined" || socketError) && (
+                    <p className="px-6 pb-2 text-center text-[11px] text-muted-foreground bg-transparent">
+                        {socketError ?? "Connecting to chat…"}
+                    </p>
+                )}
+
+                <ChatComposer
+                    onSend={handleSend}
+                    disabled={connectionStatus !== "joined"}
+                    onTypingStart={() => conversationId && sendTypingStart(conversationId)}
+                    onTypingStop={() => conversationId && sendTypingStop(conversationId)}
+                    replyingTo={replyingTo}
+                    onCancelReply={() => setReplyingTo(null)}
+                    editingMessage={editingMessage}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={() => setEditingMessage(null)}
+                />
+            </div>
         </main>
     );
 }

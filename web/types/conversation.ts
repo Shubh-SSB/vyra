@@ -17,6 +17,8 @@ export type ConversationParticipant = {
     };
 };
 
+import { Attachment } from "./message";
+
 export type ConversationMessage = {
     id: string;
     conversationId: string;
@@ -27,6 +29,7 @@ export type ConversationMessage = {
     updatedAt: string;
     editedAt?: string | null;
     deletedAt?: string | null;
+    attachments?: Attachment[];
 };
 
 export type ConversationPreview = {

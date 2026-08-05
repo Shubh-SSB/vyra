@@ -27,4 +27,4 @@ import { FriendRepository } from "./repositories/friend.repository";
         FriendRepository,
     ],
 })
-export class FriendsModule {}
+export class FriendsModule { }

@@ -57,6 +57,13 @@ export class MessageRepository {
                         },
                     },
                 },
+                pinnedBy: {
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
+                    },
+                },
             },
         });
     }
@@ -105,6 +112,13 @@ export class MessageRepository {
                                 displayName: true,
                             },
                         },
+                    },
+                },
+                pinnedBy: {
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
                     },
                 },
                 savedIn: {
@@ -397,6 +411,82 @@ export class MessageRepository {
             where: { id: { in: messageIds } },
             include: {
                 attachments: true,
+            },
+        });
+    }
+
+    async pin(messageId: string, pinnedById: string, pinnedDuration?: Date | null) {
+        return this.prisma.message.update({
+            where: { id: messageId },
+            data: {
+                isPinned: true,
+                pinnedById,
+                pinnedDuration: pinnedDuration || null,
+            },
+            include: {
+                pinnedBy: {
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
+                    },
+                },
+            },
+        });
+    }
+
+    async unpin(messageId: string) {
+        return this.prisma.message.update({
+            where: { id: messageId },
+            data: {
+                isPinned: false,
+                pinnedById: null,
+                pinnedDuration: null,
+            },
+        });
+    }
+
+    async findPinnedMessages(conversationId: string) {
+        return this.prisma.message.findMany({
+            where: {
+                conversationId,
+                isPinned: true,
+                OR: [
+                    { pinnedDuration: null },
+                    { pinnedDuration: { gt: new Date() } },
+                ],
+            },
+            include: {
+                attachments: true,
+                sender: {
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
+                        avatarUrl: true,
+                    },
+                },
+                pinnedBy: {
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
+                    },
+                },
+                reactions: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                                displayName: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: "desc",
             },
         });
     }

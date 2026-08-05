@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { MessageService } from "@/services/message.service";
 
 export const useInfiniteMessages = (conversationId: string | null) => {
@@ -17,3 +17,16 @@ export const useInfiniteMessages = (conversationId: string | null) => {
         staleTime: 30_000,
     });
 };
+
+export const usePinnedMessages = (conversationId: string | null) => {
+    return useQuery({
+        queryKey: ["pinnedMessages", conversationId],
+        queryFn: async () => {
+            const res = await MessageService.getPinnedMessages(conversationId!);
+            return res.data;
+        },
+        enabled: !!conversationId,
+        staleTime: 30_000,
+    });
+};
+

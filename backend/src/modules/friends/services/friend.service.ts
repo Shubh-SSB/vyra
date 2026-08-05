@@ -3,13 +3,14 @@ import { UserRepository } from 'src/modules/users/repositories/user.repositories
 import { FriendRepository } from '../repositories/friend.repository';
 import { FriendRequestStatus } from '@prisma/client/wasm';
 import { RelationshipStatus } from '../enums/relationship-status.enum';
-
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class FriendsService {
     constructor(
         private readonly friendRepository: FriendRepository,
         private readonly userRepository: UserRepository,
+        private readonly eventEmitter: EventEmitter2,
     ) { }
 
     async sendRequest(
@@ -59,12 +60,22 @@ export class FriendsService {
                     break;
             }
         }
-
-        return this.friendRepository.sendRequest(
+        const request = await this.friendRepository.sendRequest(
             senderId,
             receiverId,
         );
+
+        const sender = await this.userRepository.findPublicById(senderId);
+
+        this.eventEmitter.emit("friend-request.created", {
+            sender,
+            receiverId,
+            requestId: request.id,
+        });
+
+        return request;
     }
+
 
     async acceptRequest(
         currentUserId: string,
@@ -191,27 +202,28 @@ export class FriendsService {
         }
 
         if (relationship.status === "ACCEPTED") {
-        return {
-            relationship: RelationshipStatus.FRIENDS,
-        };
-    }
+            return {
+                relationship: RelationshipStatus.FRIENDS,
+            };
+        }
 
-    if (relationship.status === "PENDING") {
+        if (relationship.status === "PENDING") {
 
-        if (relationship.senderId === currentUserId) {
+            if (relationship.senderId === currentUserId) {
+                return {
+                    relationship:
+                        RelationshipStatus.PENDING_SENT,
+                };
+            }
+
             return {
                 relationship:
-                    RelationshipStatus.PENDING_SENT,
+                    RelationshipStatus.PENDING_RECEIVED,
             };
         }
 
         return {
-            relationship:
-                RelationshipStatus.PENDING_RECEIVED,
-        };
-    }
-
-        return {relationship: RelationshipStatus.NONE,
+            relationship: RelationshipStatus.NONE,
         };
     }
 }

@@ -36,6 +36,8 @@ type Props = {
     onBulkDeleteForEveryone: () => void;
     onBulkHide: () => void;
     onBulkForward: () => void;
+    onPin?: (messageId: string, pinnedDuration?: string | null) => void;
+    onUnpin?: (messageId: string) => void;
 };
 
 export default function ChatThread({
@@ -63,6 +65,8 @@ export default function ChatThread({
     onBulkDeleteForEveryone,
     onBulkHide,
     onBulkForward,
+    onPin,
+    onUnpin,
 }: Props) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -266,6 +270,8 @@ export default function ChatThread({
                                         isSelected={selectedIds.has(msg.id)}
                                         onToggleSelect={onToggleSelect}
                                         onEnterSelectMode={onEnterSelectMode}
+                                        onPin={onPin}
+                                        onUnpin={onUnpin}
                                     />
                                 </React.Fragment>
                             );
@@ -279,7 +285,7 @@ export default function ChatThread({
                                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" style={{ animationDelay: '150ms' }} />
                                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground" style={{ animationDelay: '300ms' }} />
                             </span>
-                            <span className="">typing...</span>
+                            <span className="">...</span>
                         </div>
                     )}
 

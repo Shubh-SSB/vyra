@@ -7,6 +7,7 @@ import { SearchUser } from "@/tanstack/queries/user.types";
 import UserCard from "./user-card";
 import { UserProfile } from "@/types/user.type";
 import FriendRequestBell from "./friend-request-bell";
+import Image from "next/image";
 
 export default function SearchInput({ onMessage }: { onMessage?: (user: UserProfile) => void }) {
     const [query, setQuery] = useState("");
@@ -43,6 +44,7 @@ export default function SearchInput({ onMessage }: { onMessage?: (user: UserProf
                         placeholder="Search by @username"
                         className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-8 text-[13px] font-medium text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none"
                     />
+
                     {query && (
                         <button
                             onClick={() => setQuery("")}
@@ -54,7 +56,22 @@ export default function SearchInput({ onMessage }: { onMessage?: (user: UserProf
                 </div>
             </div>
             <div className="mt-4 flex-1 overflow-y-auto px-5 pb-6">
-                <SearchResults data={data} onSelect={setSelectedUser} />
+                {!data || data.length === 0 ? (
+                    <div className="items-center justify-center flex flex-col gap-4 h-1/2">
+                        <Image
+                            src="/connections.gif"
+                            height={150}
+                            width={150}
+                            alt="connection-image"
+                            className="rounded-full"
+                            unoptimized
+                            priority
+                        />
+                        <p className="font-display text-xl font-semibold tracking-tight">Find Your People.</p>
+                    </div>
+                ) : (
+                    <SearchResults data={data} onSelect={setSelectedUser} />
+                )}
             </div>
         </div>
     );

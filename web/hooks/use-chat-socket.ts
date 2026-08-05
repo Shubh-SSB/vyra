@@ -180,6 +180,26 @@ export function useChatSocket({
             }
         });
 
+        socket.on('messagePinUpdated', ({ conversationId, messageId, isPinned, pinnedDuration, pinnedBy }) => {
+            // Update the messages infinite query cache
+            queryClient.setQueryData<any>(['messages', conversationId], (current: any) => {
+                if (!current) return current;
+                return {
+                    ...current,
+                    pages: current.pages.map((page: Message[]) =>
+                        page.map((msg) =>
+                            msg.id === messageId
+                                ? { ...msg, isPinned, pinnedDuration, pinnedBy }
+                                : msg,
+                        ),
+                    ),
+                };
+            });
+
+            // Invalidate the pinned messages list query so it refreshes
+            queryClient.invalidateQueries({ queryKey: ["pinnedMessages", conversationId] });
+        });
+
 
         return () => {
             joinedConversationsRef.current = [];
@@ -196,6 +216,7 @@ export function useChatSocket({
             socket.off("messageReaction", handleMessageReaction);
             socket.off("messageEdited", handleMessageEdited);
             socket.off('messageDeleted');
+            socket.off('messagePinUpdated');
             socket.disconnect();
             socketRef.current = null;
         };

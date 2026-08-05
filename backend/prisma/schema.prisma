@@ -111,9 +111,11 @@ model User {
   receivedFriendRequests FriendRequest[]   @relation("FriendRequestReceiver")
   messageReactions       MessageReaction[]
 
-  deletedMessages Message[]     @relation("MessageDeletedBy")
+  deletedMessages Message[]      @relation("MessageDeletedBy")
   hiddenMessages  MessageHide[]
   collections     Collection[]
+  pinnedMessages  Message[]      @relation("MessagePinnedBy")
+  notifications   Notification[]
 }
 
 model MessageReaction {
@@ -239,6 +241,12 @@ model Message {
   isForwarded     Boolean @default(false)
   forwardedFromId String?
 
+  isPinned       Boolean   @default(false)
+  pinnedDuration DateTime?
+
+  pinnedById String?
+  pinnedBy   User?   @relation("MessagePinnedBy", fields: [pinnedById], references: [id], onDelete: SetNull)
+
   forwardedFrom   Message?  @relation("ForwardedMessages", fields: [forwardedFromId], references: [id], onDelete: SetNull)
   forwardedCopies Message[] @relation("ForwardedMessages")
 
@@ -282,6 +290,10 @@ enum AttachmentType {
   IMAGE
   VIDEO
   DOCUMENT
+  LOCATION
+  CONTACT
+  POLL
+  EVENT
 }
 
 enum AttachmentStatus {
@@ -311,4 +323,33 @@ model Attachment {
 
   messageId String?
   message   Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+enum NotificationType {
+  NEW_MESSAGE
+  FRIEND_REQUEST
+  MESSAGE_REACTION
+  MESSAGE_PIN
+  AI_REMEMBER
+  SCHEDULED_MESSAGE
+  MISSED_CALL
+  GROUP_MENTION
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  isRead    Boolean          @default(false)
+  groupId   String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }

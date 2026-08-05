@@ -8,6 +8,7 @@ import { ReactionType, MessageType, AttachmentStatus } from "@prisma/client";
 import { ConversationRepository } from "../../conversations/repositories/conversation.repository";
 import { MessageRepository } from "../repositories/message.repoitory";
 import { PrismaService } from "../../../prisma/prisma.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 @Injectable()
 export class MessagesService {
@@ -15,6 +16,7 @@ export class MessagesService {
         private readonly messageRepository: MessageRepository,
         private readonly conversationRepository: ConversationRepository,
         private readonly prisma: PrismaService,
+        private readonly eventEmitter: EventEmitter2,
     ) { }
 
     private async validateReplyMessage(
@@ -46,8 +48,9 @@ export class MessagesService {
     ) {
 
         const trimmedContent = (content || "").trim();
+        const hasAttachments = attachmentIds && attachmentIds.length > 0;
 
-        if (type === MessageType.TEXT && trimmedContent.length === 0) {
+        if (type === MessageType.TEXT && trimmedContent.length === 0 && !hasAttachments) {
             throw new BadRequestException(
                 "Message content cannot be empty",
             );
@@ -152,6 +155,15 @@ export class MessagesService {
             message.createdAt,
         );
 
+        const recipientIds = conversation.participants
+            .map((p) => p.userId)
+            .filter((id) => id !== senderId);
+
+        this.eventEmitter.emit("message.created", {
+            message,
+            recipientIds,
+        });
+
         return message;
     }
 
@@ -213,6 +225,7 @@ export class MessagesService {
             messageId,
         );
 
+        let shouldEmit = false;
         if (existingReaction) {
             const isSame = isStandard
                 ? existingReaction.reaction === reactionType
@@ -224,10 +237,24 @@ export class MessagesService {
             } else {
                 // If it is a different reaction, update it
                 await this.messageRepository.updateReaction(userId, messageId, reactionType, customEmoji);
+                shouldEmit = true;
             }
         } else {
             // Otherwise, create the new reaction
             await this.messageRepository.createReaction(userId, messageId, reactionType, customEmoji || undefined);
+            shouldEmit = true;
+        }
+
+        if (shouldEmit) {
+            const reactor = await this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { id: true, username: true, displayName: true },
+            });
+            this.eventEmitter.emit("message.reacted", {
+                message,
+                reactor,
+                reaction: customEmoji || reactionStr,
+            });
         }
 
         // Fetch all updated reactions for the message to return/broadcast
@@ -436,4 +463,83 @@ export class MessagesService {
         if (!messageIds.length) throw new BadRequestException("messageIds must be non-empty");
         return this.messageRepository.bulkHideForMe(messageIds, userId);
     }
-}
+
+    async pinMessage(userId: string, messageId: string, pinnedDuration?: string | null) {
+        const message = await this.messageRepository.findById(messageId);
+        if (!message) {
+            throw new NotFoundException("Message not found");
+        }
+
+        const conversation = await this.conversationRepository.findById(message.conversationId);
+        if (!conversation) {
+            throw new NotFoundException("Conversation not found");
+        }
+
+        const participant = conversation.participants.find((p) => p.userId === userId);
+        if (!participant) {
+            throw new ForbiddenException("You are not a participant of this conversation");
+        }
+
+        // Permissions: In group chats, only OWNER or ADMIN can pin
+        if (conversation.type === "GROUP" && participant.role !== "OWNER" && participant.role !== "ADMIN") {
+            throw new ForbiddenException("Only admins or owners can pin messages in group chats");
+        }
+
+        // Pinned duration timer
+        let durationDate: Date | null = null;
+        if (pinnedDuration) {
+            durationDate = new Date(pinnedDuration);
+            if (isNaN(durationDate.getTime())) {
+                throw new BadRequestException("Invalid pinned duration date format");
+            }
+        }
+
+        const pinnedMessage = await this.messageRepository.pin(messageId, userId, durationDate);
+
+        const pinner = conversation.participants.find((p) => p.userId === userId)?.user;
+        const recipientIds = conversation.participants.map((p) => p.userId);
+
+        this.eventEmitter.emit("message.pinned", {
+            message: pinnedMessage,
+            pinner,
+            recipientIds,
+        });
+
+        return pinnedMessage;
+    }
+
+    async unpinMessage(userId: string, messageId: string) {
+        const message = await this.messageRepository.findById(messageId);
+        if (!message) {
+            throw new NotFoundException("Message not found");
+        }
+
+        const conversation = await this.conversationRepository.findById(message.conversationId);
+        if (!conversation) {
+            throw new NotFoundException("Conversation not found");
+        }
+
+        const participant = conversation.participants.find((p) => p.userId === userId);
+        if (!participant) {
+            throw new ForbiddenException("You are not a participant of this conversation");
+        }
+
+        // Permissions: In group chats, only OWNER or ADMIN can unpin
+        if (conversation.type === "GROUP" && participant.role !== "OWNER" && participant.role !== "ADMIN") {
+            throw new ForbiddenException("Only admins or owners can unpin messages in group chats");
+        }
+
+        await this.messageRepository.unpin(messageId);
+        return { messageId, conversationId: message.conversationId, isPinned: false };
+    }
+
+    async getPinnedMessages(userId: string, conversationId: string) {
+        const isParticipant = await this.conversationRepository.isParticipant(conversationId, userId);
+        if (!isParticipant) {
+            throw new ForbiddenException("You are not a participant of this conversation");
+        }
+
+        return this.messageRepository.findPinnedMessages(conversationId);
+    }
+}
+

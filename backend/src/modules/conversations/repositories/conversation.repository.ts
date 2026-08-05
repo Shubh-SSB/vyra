@@ -37,6 +37,9 @@ export class ConversationRepository {
             createdAt: 'desc',
           },
           take: 1,
+          include: {
+            attachments: true,
+          },
         },
       },
     });
@@ -45,7 +48,7 @@ export class ConversationRepository {
   async findUserConversations(
     userId: string,
   ) {
-    return this.prisma.conversation.findMany({
+    const conversations = await this.prisma.conversation.findMany({
       where: {
         participants: {
           some: {
@@ -77,12 +80,36 @@ export class ConversationRepository {
           orderBy: {
             createdAt: 'desc',
           },
+          include: {
+            attachments: true,
+          },
         },
       },
       orderBy: {
         lastMessageAt: 'desc',
       },
     });
+
+    return Promise.all(
+      conversations.map(async (conv) => {
+        const participant = conv.participants.find((p) => p.userId === userId);
+        const lastReadAt = participant?.lastReadAt;
+
+        const unreadCount = await this.prisma.message.count({
+          where: {
+            conversationId: conv.id,
+            senderId: { not: userId },
+            hiddenBy: { none: { userId } },
+            ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+          },
+        });
+
+        return {
+          ...conv,
+          unreadCount,
+        };
+      })
+    );
   }
 
   async findDirectConversation(

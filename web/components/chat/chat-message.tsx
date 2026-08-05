@@ -6,10 +6,14 @@ import { cn } from "@/lib/utils";
 import { Message } from "@/types/message";
 import {
     Check, CheckCheck, Plus, SmilePlus, CornerUpLeft,
-    ChevronDown, Pencil, Trash2, EyeOff, Trash, AlertTriangle, Bookmark, Forward, MousePointerClick
+    ChevronDown, Pencil, Trash2, EyeOff, Trash, AlertTriangle, Bookmark, Forward, MousePointerClick,
+    Paperclip, Pin, PinOff
 } from "lucide-react";
 import { SaveToCollectionModal } from "./save-to-collection-modal";
 import VoicePlayer from "./voice-player";
+import MediaLightbox from "./media-lightbox";
+import ConfirmModal, { ConfirmAction } from "./confirm-modal";
+import PinDurationModal from "./pin-duration-modal";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,119 +36,9 @@ const REACTION_EMOJIS: Record<string, string> = {
 
 const CUSTOM_EMOJIS = ["🔥", "🎉", "👏", "🚀", "💡", "💯", "👀", "🌟", "🎈", "✨", "🙌", "🤝"];
 
-// ─── Confirmation Modal ───────────────────────────────────────────────────────
+// ─── Confirmation Modal Action Type ──────────────────────────────────────────
 
-type ConfirmAction = {
-    label: string;
-    description: string;
-    icon: React.ReactNode;
-    variant: "red" | "muted";
-    onConfirm: () => void;
-};
-
-function ConfirmModal({
-    open,
-    title,
-    description,
-    icon,
-    confirmLabel,
-    confirmVariant,
-    onConfirm,
-    onCancel,
-}: {
-    open: boolean;
-    title: string;
-    description: string;
-    icon: React.ReactNode;
-    confirmLabel: string;
-    confirmVariant: "red" | "muted";
-    onConfirm: () => void;
-    onCancel: () => void;
-}) {
-    // Close on Escape
-    useEffect(() => {
-        if (!open) return;
-        const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
-        window.addEventListener("keydown", handler);
-        return () => window.removeEventListener("keydown", handler);
-    }, [open, onCancel]);
-
-    if (typeof window === "undefined") return null;
-
-    return createPortal(
-        <AnimatePresence>
-            {open && (
-                <motion.div
-                    key="confirm-backdrop"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-                    onClick={onCancel}
-                >
-                    {/* Blurred backdrop */}
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-                    {/* Modal card */}
-                    <motion.div
-                        key="confirm-card"
-                        initial={{ opacity: 0, scale: 0.92, y: 12 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.92, y: 12 }}
-                        transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="relative z-10 w-full max-w-[340px] rounded-2xl border border-white/10 bg-[#18181b] shadow-2xl overflow-hidden"
-                    >
-                        {/* Top accent line */}
-                        <div className={cn(
-                            "h-[2px] w-full",
-                            confirmVariant === "red" ? "bg-gradient-to-r from-red-500/60 via-red-400/40 to-transparent" : "bg-gradient-to-r from-white/20 via-white/10 to-transparent"
-                        )} />
-
-                        <div className="px-5 py-5 flex flex-col gap-4">
-                            {/* Icon + Title */}
-                            <div className="flex items-start gap-3">
-                                <div className={cn(
-                                    "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                                    confirmVariant === "red" ? "bg-red-500/15 text-red-400" : "bg-white/10 text-muted-foreground"
-                                )}>
-                                    {icon}
-                                </div>
-                                <div className="flex flex-col gap-0.5">
-                                    <p className="text-sm font-semibold text-foreground leading-snug">{title}</p>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-2 justify-end">
-                                <button
-                                    onClick={onCancel}
-                                    className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground border border-white/[0.08] hover:bg-white/5 hover:text-foreground transition-all duration-150 active:scale-95 cursor-pointer"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={() => { onConfirm(); onCancel(); }}
-                                    className={cn(
-                                        "rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 cursor-pointer",
-                                        confirmVariant === "red"
-                                            ? "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 hover:text-red-300"
-                                            : "bg-white/10 text-foreground border border-white/10 hover:bg-white/15"
-                                    )}
-                                >
-                                    {confirmLabel}
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>,
-        document.body,
-    );
-}
+// (ConfirmModal and PinDurationModal have been moved to separate files)
 
 // ─── Position-aware Portal Dropdown ──────────────────────────────────────────
 
@@ -154,41 +48,57 @@ function ContextMenu({
     open,
     anchorRef,
     onClose,
+    isOwn,
     children,
 }: {
     open: boolean;
     anchorRef: React.RefObject<HTMLButtonElement | null>;
     onClose: () => void;
+    isOwn: boolean;
     children: React.ReactNode;
 }) {
     const menuRef = useRef<HTMLDivElement>(null);
     const [pos, setPos] = useState<MenuPosition | null>(null);
 
-    // Calculate position whenever menu opens
+    // Calculate position dynamically after render
     useEffect(() => {
-        if (!open || !anchorRef.current) return;
+        if (!open || !anchorRef.current) {
+            setPos(null);
+            return;
+        }
 
-        const MENU_W = 192;
-        const MENU_H = 200; // approximate max height
-        const GAP = 6;
-        const EDGE_PAD = 10;
+        const updatePosition = () => {
+            if (!anchorRef.current) return;
+            const MENU_W = 192;
+            const GAP = 6;
+            const EDGE_PAD = 10;
 
-        const rect = anchorRef.current.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
+            const rect = anchorRef.current.getBoundingClientRect();
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
 
-        // Horizontal: prefer right-aligned to anchor, flip left if overflows
-        let left = rect.right - MENU_W;
-        if (left < EDGE_PAD) left = rect.left;
-        if (left + MENU_W > vw - EDGE_PAD) left = vw - MENU_W - EDGE_PAD;
+            // Get exact height of the menu element if mounted, or fallback to 280
+            const actualHeight = menuRef.current ? menuRef.current.offsetHeight : 280;
 
-        // Vertical: prefer below anchor, flip above if overflows
-        let top = rect.bottom + GAP;
-        if (top + MENU_H > vh - EDGE_PAD) top = rect.top - MENU_H - GAP;
-        if (top < EDGE_PAD) top = EDGE_PAD;
+            // Horizontal alignment: expand left for own messages, expand right for others
+            let left = isOwn ? (rect.right - MENU_W) : rect.left;
+            if (left < EDGE_PAD) left = EDGE_PAD;
+            if (left + MENU_W > vw - EDGE_PAD) left = vw - MENU_W - EDGE_PAD;
 
-        setPos({ top, left });
-    }, [open, anchorRef]);
+            // Vertical alignment: flip above if it overflows the bottom
+            let top = rect.bottom + GAP;
+            if (top + actualHeight > vh - EDGE_PAD) {
+                top = rect.top - actualHeight - GAP;
+            }
+            if (top < EDGE_PAD) top = EDGE_PAD;
+
+            setPos({ top, left });
+        };
+
+        // Run update position in next animation frame to let DOM paint first
+        const frameId = requestAnimationFrame(updatePosition);
+        return () => cancelAnimationFrame(frameId);
+    }, [open, anchorRef, isOwn, children]);
 
     // Close on Escape
     useEffect(() => {
@@ -202,7 +112,7 @@ function ContextMenu({
 
     return createPortal(
         <AnimatePresence>
-            {open && pos && (
+            {open && (
                 <>
                     {/* Invisible full-screen close trap */}
                     <div className="fixed inset-0 z-[998]" onClick={onClose} />
@@ -214,7 +124,12 @@ function ContextMenu({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: -4 }}
                         transition={{ duration: 0.13, ease: [0.23, 1, 0.32, 1] }}
-                        style={{ top: pos.top, left: pos.left, width: 192 }}
+                        style={{
+                            top: pos ? pos.top : -9999,
+                            left: pos ? pos.left : -9999,
+                            width: 192,
+                            visibility: pos ? "visible" : "hidden",
+                        }}
                         className="fixed z-[999] rounded-xl border border-white/10 bg-[#1c1c1f]/95 shadow-2xl py-1 backdrop-blur-xl overflow-hidden"
                     >
                         {children}
@@ -280,6 +195,8 @@ type Props = {
     isSelected: boolean;
     onToggleSelect: (messageId: string) => void;
     onEnterSelectMode: (messageId: string) => void;
+    onPin?: (messageId: string, pinnedDuration?: string | null) => void;
+    onUnpin?: (messageId: string) => void;
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -289,6 +206,7 @@ function ChatMessage({
     sendReaction, onReply, onEdit,
     onDeleteForMe, onDeleteForEveryone, onHide, onForward,
     selectionMode, isSelected, onToggleSelect, onEnterSelectMode,
+    onPin, onUnpin,
 }: Props) {
     // Swipe gestures
     const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -317,11 +235,18 @@ function ChatMessage({
     const [showMenu, setShowMenu] = useState(false);
     const [showHideToast, setShowHideToast] = useState(false);
     const [showCollectionModal, setShowCollectionModal] = useState(false);
+    const [showPinModal, setShowPinModal] = useState(false);
 
     // Confirmation modal state
     const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
 
     const menuBtnRef = useRef<HTMLButtonElement>(null);
+
+    // Lightbox states
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxSrc, setLightboxSrc] = useState("");
+    const [lightboxType, setLightboxType] = useState<"IMAGE" | "VIDEO">("IMAGE");
+    const [lightboxFileName, setLightboxFileName] = useState("");
 
     const canEdit = isOwn && !message.deletedAt && Date.now() <= new Date(message.createdAt).getTime() + 15 * 60 * 1000;
     const isDeleted = !!message.deletedAt;
@@ -606,6 +531,7 @@ function ChatMessage({
                                     open={showMenu}
                                     anchorRef={menuBtnRef}
                                     onClose={closeMenu}
+                                    isOwn={isOwn}
                                 >
                                     <MenuItem
                                         icon={<MousePointerClick className="h-3.5 w-3.5" />}
@@ -618,6 +544,25 @@ function ChatMessage({
                                         label="Forward"
                                         onClick={() => { onForward(message); closeMenu(); }}
                                     />
+
+                                    {onPin && onUnpin && (
+                                        <>
+                                            <MenuDivider />
+                                            {message.isPinned ? (
+                                                <MenuItem
+                                                    icon={<PinOff className="h-3.5 w-3.5" />}
+                                                    label="Unpin Message"
+                                                    onClick={() => { onUnpin(message.id); closeMenu(); }}
+                                                />
+                                            ) : (
+                                                <MenuItem
+                                                    icon={<Pin className="h-3.5 w-3.5" />}
+                                                    label="Pin Message"
+                                                    onClick={() => { setShowPinModal(true); closeMenu(); }}
+                                                />
+                                            )}
+                                        </>
+                                    )}
 
                                     <MenuDivider />
 
@@ -787,19 +732,126 @@ function ChatMessage({
                                 Forwarded
                             </span>
                         )}
-                        {message.attachments && message.attachments.length > 0 && message.attachments[0].type === "VOICE" ? (
-                            <VoicePlayer
-                                src={message.attachments[0].fileUrl}
-                                duration={(message.attachments[0].metadata as any)?.duration || 0}
-                                isOwn={isOwn}
-                            />
+                        {message.attachments && message.attachments.length > 0 ? (
+                            <div className="flex flex-col gap-2.5">
+                                {/* Render media files (Images & Videos) */}
+                                {message.attachments.some(att => att.type === "IMAGE" || att.type === "VIDEO") && (
+                                    <div className={cn(
+                                        "grid gap-1.5 rounded-lg overflow-hidden",
+                                        message.attachments.filter(att => att.type === "IMAGE" || att.type === "VIDEO").length > 1 ? "grid-cols-2" : "grid-cols-1"
+                                    )}>
+                                        {message.attachments.map((att) => {
+                                            if (att.type === "IMAGE") {
+                                                return (
+                                                    <div
+                                                        key={att.id}
+                                                        className="relative max-w-full overflow-hidden rounded-md border border-white/[0.04] bg-black/10 cursor-pointer hover:opacity-90 transition"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setLightboxSrc(att.fileUrl);
+                                                            setLightboxType("IMAGE");
+                                                            setLightboxFileName(att.storageKey.split("-").slice(1).join("-"));
+                                                            setLightboxOpen(true);
+                                                        }}
+                                                    >
+                                                        <img
+                                                            src={att.fileUrl}
+                                                            alt="Attached image"
+                                                            className="max-h-[300px] w-full object-cover"
+                                                        />
+                                                    </div>
+                                                );
+                                            } else if (att.type === "VIDEO") {
+                                                return (
+                                                    <div
+                                                        key={att.id}
+                                                        className="relative rounded-md overflow-hidden border border-white/[0.04] bg-black cursor-pointer group/video"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setLightboxSrc(att.fileUrl);
+                                                            setLightboxType("VIDEO");
+                                                            setLightboxFileName(att.storageKey.split("-").slice(1).join("-"));
+                                                            setLightboxOpen(true);
+                                                        }}
+                                                    >
+                                                        <video
+                                                            src={att.fileUrl}
+                                                            className="max-h-[300px] w-full object-contain pointer-events-none"
+                                                            preload="metadata"
+                                                        />
+                                                        {/* Play overlay icon */}
+                                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-100 group-hover/video:bg-black/40 transition-colors">
+                                                            <div className="w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition active:scale-95">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-white ml-0.5">
+                                                                    <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+                                                                </svg>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Render Voice Notes */}
+                                {message.attachments.filter(att => att.type === "VOICE").map((att) => (
+                                    <VoicePlayer
+                                        key={att.id}
+                                        src={att.fileUrl}
+                                        duration={(att.metadata as any)?.duration || 0}
+                                        isOwn={isOwn}
+                                    />
+                                ))}
+
+                                {/* Render Documents / Other Files */}
+                                {message.attachments.filter(att => att.type === "DOCUMENT").map((att) => (
+                                    <a
+                                        key={att.id}
+                                        href={att.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={cn(
+                                            "flex items-center gap-2.5 p-2 rounded-xl border text-xs transition duration-150 active:scale-98 select-text",
+                                            isOwn
+                                                ? "bg-black/10 border-black/10 text-background hover:bg-black/15"
+                                                : "bg-surface-elevated border-white/[0.04] text-foreground hover:bg-white/5"
+                                        )}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <Paperclip className="h-4 w-4 shrink-0 opacity-70" />
+                                        <div className="flex flex-col min-w-0 flex-1">
+                                            <span className="font-semibold truncate">{att.storageKey.split("-").slice(1).join("-") || "document"}</span>
+                                            <span className="text-[10px] opacity-60">{(att.size / 1024 / 1024).toFixed(2)} MB</span>
+                                        </div>
+                                    </a>
+                                ))}
+
+                                {/* Render text caption underneath if present */}
+                                {message.content && (
+                                    <span className="text-inherit select-text px-0.5">{message.content}</span>
+                                )}
+                            </div>
                         ) : (
-                            <span>{message.content}</span>
+                            <span className="select-text">{message.content}</span>
                         )}
                         <div className={cn(
                             "mt-1 flex items-center justify-end gap-1.5 text-[10px] tracking-wide",
                             isOwn ? "text-background/50" : "text-muted-foreground"
                         )}>
+                            {message.isPinned && (
+                                <>
+                                    <span className={cn(
+                                        "flex items-center gap-0.5 font-bold uppercase tracking-wider text-[8px]",
+                                        isOwn ? "text-background/70" : "text-emerald-400"
+                                    )}>
+                                        <Pin className="h-2.5 w-2.5 fill-current shrink-0 rotate-45" />
+                                        <span>Pinned</span>
+                                    </span>
+                                    <span className="opacity-50">·</span>
+                                </>
+                            )}
                             {message.savedIn && message.savedIn.length > 0 && (
                                 <>
                                     <span className={cn(
@@ -887,6 +939,27 @@ function ChatMessage({
                     </div>
                 )}
             </motion.div>
+
+            <MediaLightbox
+                isOpen={lightboxOpen}
+                onClose={() => setLightboxOpen(false)}
+                src={lightboxSrc}
+                type={lightboxType}
+                fileName={lightboxFileName}
+            />
+
+            <PinDurationModal
+                open={showPinModal}
+                onConfirm={(durationMs) => {
+                    if (onPin) {
+                        const pinnedDuration = durationMs 
+                            ? new Date(Date.now() + durationMs).toISOString()
+                            : null;
+                        onPin(message.id, pinnedDuration);
+                    }
+                }}
+                onCancel={() => setShowPinModal(false)}
+            />
         </>
     );
 }
@@ -896,6 +969,7 @@ export default memo(ChatMessage, (prevProps, nextProps) => {
         prevProps.message === nextProps.message &&
         prevProps.message.deletedAt === nextProps.message.deletedAt &&
         prevProps.message.savedIn?.length === nextProps.message.savedIn?.length &&
+        prevProps.message.isPinned === nextProps.message.isPinned &&
         prevProps.isOwn === nextProps.isOwn &&
         prevProps.grouped === nextProps.grouped &&
         prevProps.isRead === nextProps.isRead &&

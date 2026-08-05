@@ -287,6 +287,17 @@ export class ChatGateway
         const timestamp = new Date();
         await this.conversationRepository.updateLastReadAt(conversationId, user.id, timestamp);
 
+        // Mark any unread NEW_MESSAGE notifications for this conversation as read
+        await this.prisma.notification.updateMany({
+            where: {
+                userId: user.id,
+                groupId: conversationId,
+                type: "NEW_MESSAGE",
+                isRead: false,
+            },
+            data: { isRead: true },
+        });
+
         // Broadcast to all online participants in this conversation
         this.server.to(conversationId).emit("messagesRead", {
             conversationId,
@@ -393,5 +404,30 @@ export class ChatGateway
             conversationId,
             message,
         });
+    }
+
+    broadcastMessagePinUpdated(
+        conversationId: string,
+        messageId: string,
+        isPinned: boolean,
+        pinnedDuration: Date | null,
+        pinnedBy: any,
+    ) {
+        this.server.to(conversationId).emit("messagePinUpdated", {
+            conversationId,
+            messageId,
+            isPinned,
+            pinnedDuration,
+            pinnedBy,
+        });
+    }
+
+    broadcastToUser(userId: string, event: string, data: any) {
+        const sockets = this.socketStateService.getSockets(userId);
+        for (const socket of sockets) {
+            if (socket.connected) {
+                socket.emit(event, data);
+            }
+        }
     }
 }

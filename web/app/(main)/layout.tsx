@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "@/lib/token";
 import Link from "next/link";
 import { VyraIcon } from "@/components/vyra/logo";
 import RailIcon from "@/components/ui/rail-icon";
-import { Archive, EyeOff, Pin, Settings, Bookmark } from "lucide-react";
-
-
+import { Archive, EyeOff, Pin, Settings, Bookmark, Bell } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useNotificationListener } from "@/hooks/use-notification-listener";
+import { useUnreadCount } from "@/tanstack/queries/notification.query";
+import NotificationsDrawer from "@/components/notifications/notifications-drawer";
 
 export default function MainLayout({
     children,
@@ -16,6 +18,13 @@ export default function MainLayout({
     children: React.ReactNode;
 }) {
     const router = useRouter();
+    const [showNotifications, setShowNotifications] = useState(false);
+
+    // Initialize notification listeners (browser push, sound, socket, query invalidate)
+    useNotificationListener();
+
+    // Query unread count for the navigation badge
+    const { data: unreadCount = 0 } = useUnreadCount();
 
     useEffect(() => {
         const token = getAccessToken();
@@ -35,6 +44,36 @@ export default function MainLayout({
                     <RailIcon label="Chats" active />
                     <RailIcon label="Pinned" icon={<Pin className="h-4 w-4" strokeWidth={1.5} />} />
                     <RailIcon label="Archive" icon={<Archive className="h-4 w-4" strokeWidth={1.5} />} />
+                    
+                    {/* Notifications Button */}
+                    <button
+                        onClick={() => {
+                            setShowNotifications(!showNotifications);
+                            if (
+                                typeof window !== "undefined" &&
+                                "Notification" in window &&
+                                Notification.permission === "default"
+                            ) {
+                                Notification.requestPermission().catch((err) => {
+                                    console.warn("Notification permission request failed:", err);
+                                });
+                            }
+                        }}
+                        title="Notifications"
+                        aria-label="Notifications"
+                        className={cn(
+                            "relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all duration-150 active:scale-95 hover:bg-surface hover:text-foreground cursor-pointer",
+                            showNotifications && "bg-surface text-foreground"
+                        )}
+                    >
+                        <Bell className="h-4 w-4" strokeWidth={1.5} />
+                        {unreadCount > 0 && (
+                            <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm">
+                                {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                        )}
+                    </button>
+
                     <Link
                         href="/settings/hidden-messages"
                         title="Hidden Messages"
@@ -64,6 +103,11 @@ export default function MainLayout({
             <div className="min-w-0 md:pl-[60px]">
                 {children}
             </div>
+
+            <NotificationsDrawer
+                open={showNotifications}
+                onClose={() => setShowNotifications(false)}
+            />
         </div>
     );
 }
