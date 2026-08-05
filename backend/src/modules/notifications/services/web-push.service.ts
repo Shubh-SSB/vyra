@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../../prisma/prisma.service";
-import * as webpush from "web-push";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const webpush = require("web-push") as typeof import("web-push");
 
 @Injectable()
 export class WebPushService implements OnModuleInit {

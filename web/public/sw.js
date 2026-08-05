@@ -5,40 +5,30 @@ self.addEventListener("push", (event) => {
         const payload = event.data.json();
         const { title, body, data } = payload;
 
-        // Prevent showing duplicate system notifications if the browser tab is open and focused
+        const iconEmojiMap = {
+            NEW_MESSAGE: "💬",
+            FRIEND_REQUEST: "👥",
+            MESSAGE_REACTION: "❤️",
+            MESSAGE_PIN: "📌",
+        };
+        const emoji = iconEmojiMap[data?.type] || "🔔";
+
+        const options = {
+            body: body,
+            icon: "/favicon.jpg",
+            badge: "/favicon.jpg",
+            tag: data?.groupId || data?.id || "vyra-notification",
+            renotify: true,
+            data: {
+                url: data?.conversationId ? `/chat?convId=${data.conversationId}` : "/chat",
+            },
+        };
+
         event.waitUntil(
-            self.clients.matchAll({ type: "window" }).then((clientList) => {
-                const isFocused = clientList.some((client) => client.focused);
-                if (isFocused) {
-                    // Suppress lockscreen popup since client is already looking at active app session
-                    return;
-                }
-
-                // Determine matching emoji/icon category
-                const iconEmojiMap = {
-                    NEW_MESSAGE: "💬",
-                    FRIEND_REQUEST: "👥",
-                    MESSAGE_REACTION: "❤️",
-                    MESSAGE_PIN: "📌",
-                };
-                const emoji = iconEmojiMap[data?.type] || "🔔";
-
-                const options = {
-                    body: body,
-                    icon: "/favicon.jpg",
-                    badge: "/favicon.jpg",
-                    tag: data?.groupId || data?.id || "vyra-notification",
-                    renotify: true,
-                    data: {
-                        url: data?.conversationId ? `/chat?id=${data.conversationId}` : "/",
-                    },
-                };
-
-                return self.registration.showNotification(`${emoji} ${title}`, options);
-            })
+            self.registration.showNotification(`${emoji} ${title}`, options)
         );
     } catch (err) {
-        console.error("Failed to parse push event payload", err);
+        console.error("[SW] Failed to parse push payload", err);
     }
 });
 

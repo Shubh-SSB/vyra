@@ -30,24 +30,35 @@ export function useNotificationListener() {
             if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
                 try {
                     const registration = await navigator.serviceWorker.register("/sw.js");
-                    console.log("Service Worker registered:", registration);
 
-                    // Subscribe to Web Push
-                    const activeSubscription = await registration.pushManager.getSubscription();
-                    if (!activeSubscription) {
-                        const VAPID_PUBLIC_KEY = "BBPtl8vPX__56VJ5wy9pCtb-VwuzawvweSh6Gu0m7C2MALy92yA1zaSWqzMB5PGADBAQWdIO655RB-l0NjcrBAE";
-                        const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-
-                        const subscription = await registration.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: convertedKey,
-                        });
-
-                        console.log("Web Push Subscribed:", subscription);
-                        await NotificationService.registerWebPush(subscription);
+                    // Always unsubscribe any stale/old subscription first
+                    // (fixes Vercel deployments where VAPID key or endpoint may have changed)
+                    const existing = await registration.pushManager.getSubscription();
+                    if (existing) {
+                        await existing.unsubscribe();
                     }
+
+                    const VAPID_PUBLIC_KEY = "BBPtl8vPX__56VJ5wy9pCtb-VwuzawvweSh6Gu0m7C2MALy92yA1zaSWqzMB5PGADBAQWdIO655RB-l0NjcrBAE";
+                    const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+
+                    const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: convertedKey,
+                    });
+
+                    const subscriptionJson = subscription.toJSON();
+                    const subscriptionPayload = {
+                        endpoint: subscriptionJson.endpoint,
+                        keys: {
+                            p256dh: subscriptionJson.keys?.p256dh,
+                            auth: subscriptionJson.keys?.auth,
+                        },
+                    };
+
+                    await NotificationService.registerWebPush(subscriptionPayload);
+                    console.log("[Vyra] Web Push subscription registered ✅");
                 } catch (err) {
-                    console.warn("Service Worker / Web Push registration failed:", err);
+                    console.warn("[Vyra] Web Push registration failed:", err);
                 }
             }
         };

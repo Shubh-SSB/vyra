@@ -372,93 +372,95 @@ function ChatPageContent() {
         )}
       >
         {/* Mobile Top Bar — 3-dots nav menu */}
-        <div className="relative flex h-14 items-center justify-between border-b border-border bg-[#0e0e10]/80 backdrop-blur-md px-4 md:hidden shrink-0">
-          <VyraIcon />
+        <div className="relative flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-[#0E0E10]/90 px-4 backdrop-blur-xl md:hidden">
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <VyraIcon />
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              Vyra
+            </span>
+          </div>
 
-
+          {/* Menu */}
           <button
             onClick={() => setShowMobileMenu(!showMobileMenu)}
-            title="Menu"
             aria-label="Menu"
-            className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground cursor-pointer"
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground active:scale-95"
           >
             <MoreVertical className="h-5 w-5" />
+
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-[#0e0e10]">
+              <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
           </button>
 
-
-
-          {/* Spacer */}
-          <div className="h-9 w-9" />
-
-          {/* Dropdown */}
           <AnimatePresence>
             {showMobileMenu && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowMobileMenu(false)} />
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowMobileMenu(false)}
+                  className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]"
+                />
+
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: -10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="absolute left-3 top-14 z-50 w-52 origin-top-left rounded-xl border border-white/10 bg-[#0e0e11]/98 p-1.5 shadow-2xl backdrop-blur-xl flex flex-col gap-0.5"
+                  exit={{ opacity: 0, scale: 0.96, y: -10 }}
+                  transition={{ duration: 0.18 }}
+                  className="absolute right-3 top-[calc(100%+8px)] z-50 w-[min(18rem,calc(100vw-24px))] overflow-hidden rounded-2xl border border-white/10 bg-[#111114]/95 p-1.5 shadow-2xl backdrop-blur-2xl"
                 >
-                  <Link
-                    href="/chat"
-                    onClick={() => setShowMobileMenu(false)}
-                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5"
-                  >
-                    <MessageCircle className="h-4 w-4 text-primary" />
-                    <span>Chats</span>
-                  </Link>
+                  {/* Notifications */}
                   <button
                     onClick={() => { setShowMobileMenu(false); setShowNotifications(true); }}
-                    className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5 cursor-pointer"
+                    className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-white/5 active:bg-white/10"
                   >
                     <span className="flex items-center gap-3">
                       <Bell className="h-4 w-4 text-yellow-400" />
                       <span>Notifications</span>
                     </span>
                     {unreadCount > 0 && (
-                      <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
                         {unreadCount > 99 ? "99+" : unreadCount}
                       </span>
                     )}
                   </button>
-                  <Link
-                    href="/settings/hidden-messages"
-                    onClick={() => setShowMobileMenu(false)}
-                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5"
-                  >
+
+                  <div className="my-1 h-px bg-white/5" />
+
+                  {/* Nav links */}
+                  <Link href="/chat" onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-white/5 active:bg-white/10">
+                    <MessageCircle className="h-4 w-4 text-primary" />
+                    Chats
+                  </Link>
+                  <Link href="/settings/hidden-messages" onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-white/5 active:bg-white/10">
                     <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    <span>Hidden Messages</span>
+                    Hidden Messages
                   </Link>
-                  <Link
-                    href="/settings/collections"
-                    onClick={() => setShowMobileMenu(false)}
-                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5"
-                  >
+                  <Link href="/settings/collections" onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-white/5 active:bg-white/10">
                     <Bookmark className="h-4 w-4 text-muted-foreground" />
-                    <span>Saved Collections</span>
+                    Saved Collections
                   </Link>
-                  <Link
-                    href="/settings"
-                    onClick={() => setShowMobileMenu(false)}
-                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5"
-                  >
+
+                  <div className="my-1 h-px bg-white/5" />
+
+                  <Link href="/settings" onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-white/5 active:bg-white/10">
                     <Settings className="h-4 w-4 text-muted-foreground" />
-                    <span>Settings</span>
+                    Settings
                   </Link>
                 </motion.div>
               </>
             )}
           </AnimatePresence>
         </div>
-
         <NotificationsDrawer
           open={showNotifications}
           onClose={() => setShowNotifications(false)}
