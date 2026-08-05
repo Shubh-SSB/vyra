@@ -111,11 +111,12 @@ model User {
   receivedFriendRequests FriendRequest[]   @relation("FriendRequestReceiver")
   messageReactions       MessageReaction[]
 
-  deletedMessages Message[]      @relation("MessageDeletedBy")
-  hiddenMessages  MessageHide[]
-  collections     Collection[]
-  pinnedMessages  Message[]      @relation("MessagePinnedBy")
-  notifications   Notification[]
+  deletedMessages   Message[]          @relation("MessageDeletedBy")
+  hiddenMessages    MessageHide[]
+  collections       Collection[]
+  pinnedMessages    Message[]          @relation("MessagePinnedBy")
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
 }
 
 model MessageReaction {
@@ -352,4 +353,15 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  keys      Json // { p256dh: string, auth: string }
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

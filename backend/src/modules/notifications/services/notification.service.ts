@@ -2,6 +2,7 @@ import { Injectable, Inject, forwardRef } from "@nestjs/common";
 import { NotificationType, Notification } from "@prisma/client";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { ChatGateway } from "../../../socket/gateways/chat.gateway";
+import { WebPushService } from "./web-push.service";
 
 @Injectable()
 export class NotificationService {
@@ -9,6 +10,7 @@ export class NotificationService {
         private readonly prisma: PrismaService,
         @Inject(forwardRef(() => ChatGateway))
         private readonly chatGateway: ChatGateway,
+        private readonly webPushService: WebPushService,
     ) {}
 
     async createNotification(
@@ -33,6 +35,21 @@ export class NotificationService {
 
         // Broadcast to user socket
         this.chatGateway.broadcastToUser(userId, "newNotification", notification);
+
+        // Send background web push notification
+        this.webPushService.sendPushNotification(
+            userId,
+            title,
+            body,
+            {
+                id: notification.id,
+                type,
+                groupId,
+                ...data,
+            }
+        ).catch((err) => {
+            console.error("Failed to send background web push", err);
+        });
 
         return notification;
     }

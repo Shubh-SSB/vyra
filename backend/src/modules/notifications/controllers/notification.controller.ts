@@ -7,15 +7,21 @@ import {
     Query,
     Req,
     UseGuards,
+    Post,
+    Body,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { NotificationService } from "../services/notification.service";
+import { WebPushService } from "../services/web-push.service";
 import { ApiResponseUtil } from "../../../common/utils/api-response";
 
 @Controller("notifications")
 @UseGuards(JwtAuthGuard)
 export class NotificationController {
-    constructor(private readonly notificationService: NotificationService) {}
+    constructor(
+        private readonly notificationService: NotificationService,
+        private readonly webPushService: WebPushService,
+    ) {}
 
     @Get()
     async getNotifications(
@@ -63,6 +69,18 @@ export class NotificationController {
     async markAsRead(@Req() req, @Param("id") id: string) {
         const result = await this.notificationService.markAsRead(req.user.id, id);
         return ApiResponseUtil.success(result, "Notification marked as read");
+    }
+
+    @Post("web-push/register")
+    async registerWebPush(@Req() req, @Body() body: any) {
+        const result = await this.webPushService.saveSubscription(req.user.id, body);
+        return ApiResponseUtil.success(result, "Web push subscription registered successfully");
+    }
+
+    @Post("web-push/unregister")
+    async unregisterWebPush(@Req() req, @Body("endpoint") endpoint: string) {
+        const result = await this.webPushService.deleteSubscription(endpoint);
+        return ApiResponseUtil.success(result, "Web push subscription unregistered successfully");
     }
 
     @Delete()

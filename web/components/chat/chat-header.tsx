@@ -156,7 +156,7 @@ export default function ChatHeader({
                     {showSelectMenu && (
                         <>
                             {/* Backdrop close trap */}
-                            <div className="fixed inset-0 z-40" onClick={() => setShowSelectMenu(false)} />
+                            <div className="fixed inset-0 z-90" onClick={() => setShowSelectMenu(false)} />
                             <div className="absolute right-0 top-10 z-50 w-48 rounded-xl border border-white/10 bg-[#1c1c1f]/95 py-1 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-1 duration-100">
                                 {selectedOwnCount > 0 && onBulkDeleteForEveryone && (
                                     <button
@@ -209,7 +209,7 @@ export default function ChatHeader({
                 <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">
                     <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
                 </button>
-                <div 
+                <div
                     onClick={onToggleContext}
                     className="flex items-center gap-2 select-none cursor-pointer hover:opacity-80 transition"
                 >
@@ -230,7 +230,7 @@ export default function ChatHeader({
             </div>
 
             {/* Desktop */}
-            <div 
+            <div
                 onClick={onToggleContext}
                 className="hidden items-center gap-3 md:flex select-none cursor-pointer hover:opacity-80 transition"
             >

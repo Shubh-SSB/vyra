@@ -9,15 +9,58 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { NotificationService } from "@/services/notification.service";
 
+function urlBase64ToUint8Array(base64String: string) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
 export function useNotificationListener() {
     const queryClient = useQueryClient();
     const router = useRouter();
 
-    // 1. Request Browser Desktop Notification permission
+    // 1. Register Service Worker and subscribe to Web Push
     useEffect(() => {
+        const registerPush = async () => {
+            if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
+                try {
+                    const registration = await navigator.serviceWorker.register("/sw.js");
+                    console.log("Service Worker registered:", registration);
+
+                    // Subscribe to Web Push
+                    const activeSubscription = await registration.pushManager.getSubscription();
+                    if (!activeSubscription) {
+                        const VAPID_PUBLIC_KEY = "BBPtl8vPX__56VJ5wy9pCtb-VwuzawvweSh6Gu0m7C2MALy92yA1zaSWqzMB5PGADBAQWdIO655RB-l0NjcrBAE";
+                        const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+
+                        const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: convertedKey,
+                        });
+
+                        console.log("Web Push Subscribed:", subscription);
+                        await NotificationService.registerWebPush(subscription);
+                    }
+                } catch (err) {
+                    console.warn("Service Worker / Web Push registration failed:", err);
+                }
+            }
+        };
+
         if (typeof window !== "undefined" && "Notification" in window) {
             if (Notification.permission === "default") {
-                Notification.requestPermission();
+                Notification.requestPermission().then((perm) => {
+                    if (perm === "granted") {
+                        registerPush();
+                    }
+                });
+            } else if (Notification.permission === "granted") {
+                registerPush();
             }
         }
     }, []);
@@ -54,6 +97,7 @@ export function useNotificationListener() {
 
             // Invalidate TanStack query cache for notifications list and unread count
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            queryClient.invalidateQueries({ queryKey: ["notifications", "unread-count"] });
 
             // Display HTML5 browser desktop notification
             if (

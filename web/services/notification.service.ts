@@ -59,4 +59,12 @@ export const NotificationService = {
     deleteAllNotifications() {
         return $crud.delete<{ success: boolean }>(`notifications`);
     },
+
+    registerWebPush(subscription: any) {
+        return $crud.post<{ success: boolean }>(`notifications/web-push/register`, subscription);
+    },
+
+    unregisterWebPush(endpoint: string) {
+        return $crud.post<{ success: boolean }>(`notifications/web-push/unregister`, { endpoint });
+    },
 };
