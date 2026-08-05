@@ -8,8 +8,12 @@ import {
   Plus,
   Users,
   MessageCircle,
+  Bell,
+  MoreVertical,
+  Bookmark,
+  EyeOff,
 } from "lucide-react";
-import { VyraIcon, VyraMark, VyraWordmark } from "@/components/vyra/logo";
+import { VyraIcon } from "@/components/vyra/logo";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import SearchInput from "@/components/search/search-input";
@@ -25,8 +29,9 @@ import { getAccessToken } from "@/lib/token";
 import { useRelationship } from "@/tanstack/queries/friend.query";
 import { useSearchParams } from "next/navigation";
 import { playSound } from "@/lib/sounds";
-import Image from "next/image";
 import { NewChatModal } from "@/components/modal/new-chat.modal";
+import { useUnreadCount } from "@/tanstack/queries/notification.query";
+import NotificationsDrawer from "@/components/notifications/notifications-drawer";
 
 
 type Connection = {
@@ -71,6 +76,10 @@ function ChatPageContent() {
   const [socketError, setSocketError] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const { data: unreadCount = 0 } = useUnreadCount();
 
   const searchParams = useSearchParams();
   const convId = searchParams.get("convId");
@@ -362,18 +371,98 @@ function ChatPageContent() {
             : "hidden",
         )}
       >
-        {/* Mobile Top Bar */}
-        <div className="flex h-14 items-center justify-between border-b border-border bg-[#0e0e10]/80 backdrop-blur-md px-5 md:hidden shrink-0">
+        {/* Mobile Top Bar — 3-dots nav menu */}
+        <div className="relative flex h-14 items-center justify-between border-b border-border bg-[#0e0e10]/80 backdrop-blur-md px-4 md:hidden shrink-0">
           <VyraIcon />
-          <Link
-            href="/settings"
-            title="Settings"
-            aria-label="Settings"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+
+
+          <button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            title="Menu"
+            aria-label="Menu"
+            className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground cursor-pointer"
           >
-            <Settings className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
+            <MoreVertical className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-[#0e0e10]">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+
+
+          {/* Spacer */}
+          <div className="h-9 w-9" />
+
+          {/* Dropdown */}
+          <AnimatePresence>
+            {showMobileMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMobileMenu(false)} />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute left-3 top-14 z-50 w-52 origin-top-left rounded-xl border border-white/10 bg-[#0e0e11]/98 p-1.5 shadow-2xl backdrop-blur-xl flex flex-col gap-0.5"
+                >
+                  <Link
+                    href="/chat"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5"
+                  >
+                    <MessageCircle className="h-4 w-4 text-primary" />
+                    <span>Chats</span>
+                  </Link>
+                  <button
+                    onClick={() => { setShowMobileMenu(false); setShowNotifications(true); }}
+                    className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Bell className="h-4 w-4 text-yellow-400" />
+                      <span>Notifications</span>
+                    </span>
+                    {unreadCount > 0 && (
+                      <span className="flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  <Link
+                    href="/settings/hidden-messages"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5"
+                  >
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    <span>Hidden Messages</span>
+                  </Link>
+                  <Link
+                    href="/settings/collections"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5"
+                  >
+                    <Bookmark className="h-4 w-4 text-muted-foreground" />
+                    <span>Saved Collections</span>
+                  </Link>
+                  <Link
+                    href="/settings"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-xs font-semibold text-foreground hover:bg-white/5"
+                  >
+                    <Settings className="h-4 w-4 text-muted-foreground" />
+                    <span>Settings</span>
+                  </Link>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
+
+        <NotificationsDrawer
+          open={showNotifications}
+          onClose={() => setShowNotifications(false)}
+        />
 
         <div className="px-5 pt-5">
           <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
