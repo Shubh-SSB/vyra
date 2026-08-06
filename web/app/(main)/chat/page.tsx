@@ -372,7 +372,7 @@ function ChatPageContent() {
         )}
       >
         {/* Mobile Top Bar — 3-dots nav menu */}
-        <div className="relative flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-[#0E0E10]/90 px-4 backdrop-blur-xl md:hidden">
+        <div className="relative z-30 flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-[#0E0E10]/90 px-4 backdrop-blur-xl md:hidden">
           {/* Logo */}
           <div className="flex items-center gap-2">
             <VyraIcon height={20} width={20} />
