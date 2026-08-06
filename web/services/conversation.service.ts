@@ -9,4 +9,12 @@ export const ConversationService = {
     createDirectConversation(userId: string) {
         return $crud.post<ConversationPreview>("conversations/direct", { userId });
     },
+
+    deleteConversation(id: string) {
+        return $crud.delete<{ success: boolean }>(`conversations/${id}`);
+    },
+
+    clearConversation(id: string) {
+        return $crud.delete<{ success: boolean }>(`conversations/${id}/messages`);
+    },
 };

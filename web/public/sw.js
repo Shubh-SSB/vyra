@@ -19,6 +19,8 @@ self.addEventListener("push", (event) => {
             badge: "/favicon.jpg",
             tag: data?.groupId || data?.id || "vyra-notification",
             renotify: true,
+            requireInteraction: false,   // Don't lock the screen — just banner
+            vibrate: [200, 100, 200],    // Buzz pattern to wake the phone
             data: {
                 url: data?.conversationId ? `/chat?convId=${data.conversationId}` : "/chat",
             },

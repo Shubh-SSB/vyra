@@ -614,13 +614,6 @@ function ChatMessage({
                         </>
                     )}
 
-                    {/* ── Deleted placeholder ── */}
-                    {isDeleted && (
-                        <span className="italic text-muted-foreground text-xs opacity-60 px-1">
-                            This message was deleted
-                        </span>
-                    )}
-
                     {/* ── Reaction Picker ── */}
                     <AnimatePresence>
                         {showPicker && (
@@ -696,192 +689,212 @@ function ChatMessage({
                                 : "rounded-2xl rounded-tl-sm bg-main/50 pt-4 px-6 backdrop-blur-xs text-foreground"
                         )}
                     >
-                        {message.replyTo && (
-                            <div
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    const element = document.getElementById(`msg-${message.replyToId}`);
-                                    if (element) {
-                                        element.scrollIntoView({ behavior: "smooth", block: "center" });
-                                        element.classList.add("bg-white/10");
-                                        setTimeout(() => element.classList.remove("bg-white/10"), 1000);
-                                    }
-                                }}
-                                className={cn(
-                                    "flex flex-col gap-0.5 border-l-2 text-[12px] pl-2.5 py-0.5 rounded-r cursor-pointer transition select-none max-w-[280px] md:max-w-[400px] overflow-hidden",
-                                    isOwn
-                                        ? "border-background/30 bg-black/20 text-background/80 hover:bg-background/10"
-                                        : "border-primary/50 bg-white/5 text-muted-foreground hover:bg-white/10"
-                                )}
-                            >
-                                <span className="font-semibold text-[11px]">
-                                    {message.replyTo.senderId === myUserId ? "You" : (message.replyTo.sender?.displayName ?? "User")}
+                        {isDeleted ? (
+                            <div className="flex flex-col gap-1">
+                                <span className={cn(
+                                    "italic opacity-60 flex items-center gap-1.5 select-none",
+                                    isOwn ? "text-background" : "text-muted-foreground"
+                                )}>
+                                    <Trash className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                                    This message was deleted
                                 </span>
-                                <span className="truncate text-xs opacity-90">
-                                    {message.replyTo.content}
-                                </span>
-                            </div>
-                        )}
-                        {/* ── Forwarded Label ── */}
-                        {message.isForwarded && (
-                            <span className={cn(
-                                "flex items-center gap-1 text-[10px] font-medium opacity-60 -mb-0.5",
-                                isOwn ? "text-background/70" : "text-muted-foreground"
-                            )}>
-                                <Forward className="h-2.5 w-2.5 shrink-0" />
-                                Forwarded
-                            </span>
-                        )}
-                        {message.attachments && message.attachments.length > 0 ? (
-                            <div className="flex flex-col gap-2.5">
-                                {/* Render media files (Images & Videos) */}
-                                {message.attachments.some(att => att.type === "IMAGE" || att.type === "VIDEO") && (
-                                    <div className={cn(
-                                        "grid gap-1.5 rounded-lg overflow-hidden",
-                                        message.attachments.filter(att => att.type === "IMAGE" || att.type === "VIDEO").length > 1 ? "grid-cols-2" : "grid-cols-1"
-                                    )}>
-                                        {message.attachments.map((att) => {
-                                            if (att.type === "IMAGE") {
-                                                return (
-                                                    <div
-                                                        key={att.id}
-                                                        className="relative max-w-full overflow-hidden rounded-md border border-white/[0.04] bg-black/10 cursor-pointer hover:opacity-90 transition"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setLightboxSrc(att.fileUrl);
-                                                            setLightboxType("IMAGE");
-                                                            setLightboxFileName(att.storageKey.split("-").slice(1).join("-"));
-                                                            setLightboxOpen(true);
-                                                        }}
-                                                    >
-                                                        <img
-                                                            src={att.fileUrl}
-                                                            alt="Attached image"
-                                                            className="max-h-[300px] w-full object-cover"
-                                                        />
-                                                    </div>
-                                                );
-                                            } else if (att.type === "VIDEO") {
-                                                return (
-                                                    <div
-                                                        key={att.id}
-                                                        className="relative rounded-md overflow-hidden border border-white/[0.04] bg-black cursor-pointer group/video"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setLightboxSrc(att.fileUrl);
-                                                            setLightboxType("VIDEO");
-                                                            setLightboxFileName(att.storageKey.split("-").slice(1).join("-"));
-                                                            setLightboxOpen(true);
-                                                        }}
-                                                    >
-                                                        <video
-                                                            src={att.fileUrl}
-                                                            className="max-h-[300px] w-full object-contain pointer-events-none"
-                                                            preload="metadata"
-                                                        />
-                                                        {/* Play overlay icon */}
-                                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-100 group-hover/video:bg-black/40 transition-colors">
-                                                            <div className="w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition active:scale-95">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-white ml-0.5">
-                                                                    <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
-                                                                </svg>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        })}
-                                    </div>
-                                )}
-
-                                {/* Render Voice Notes */}
-                                {message.attachments.filter(att => att.type === "VOICE").map((att) => (
-                                    <VoicePlayer
-                                        key={att.id}
-                                        src={att.fileUrl}
-                                        duration={(att.metadata as any)?.duration || 0}
-                                        isOwn={isOwn}
-                                    />
-                                ))}
-
-                                {/* Render Documents / Other Files */}
-                                {message.attachments.filter(att => att.type === "DOCUMENT").map((att) => (
-                                    <a
-                                        key={att.id}
-                                        href={att.fileUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={cn(
-                                            "flex items-center gap-2.5 p-2 rounded-xl border text-xs transition duration-150 active:scale-98 select-text",
-                                            isOwn
-                                                ? "bg-black/10 border-black/10 text-background hover:bg-black/15"
-                                                : "bg-surface-elevated border-white/[0.04] text-foreground hover:bg-white/5"
-                                        )}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <Paperclip className="h-4 w-4 shrink-0 opacity-70" />
-                                        <div className="flex flex-col min-w-0 flex-1">
-                                            <span className="font-semibold truncate">{att.storageKey.split("-").slice(1).join("-") || "document"}</span>
-                                            <span className="text-[10px] opacity-60">{(att.size / 1024 / 1024).toFixed(2)} MB</span>
-                                        </div>
-                                    </a>
-                                ))}
-
-                                {/* Render text caption underneath if present */}
-                                {message.content && (
-                                    <span className="text-inherit select-text px-0.5">{message.content}</span>
-                                )}
+                                <div className={cn(
+                                    "mt-1 flex items-center justify-end text-[10px] tracking-wide",
+                                    isOwn ? "text-background/50" : "text-muted-foreground"
+                                )}>
+                                    <span>{formatTime(message.createdAt)}</span>
+                                </div>
                             </div>
                         ) : (
-                            <span className="select-text">{message.content}</span>
-                        )}
-                        <div className={cn(
-                            "mt-1 flex items-center justify-end gap-1.5 text-[10px] tracking-wide",
-                            isOwn ? "text-background/50" : "text-muted-foreground"
-                        )}>
-                            {message.isPinned && (
-                                <>
+                            <>
+                                {message.replyTo && (
+                                    <div
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const element = document.getElementById(`msg-${message.replyToId}`);
+                                            if (element) {
+                                                element.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                element.classList.add("bg-white/10");
+                                                setTimeout(() => element.classList.remove("bg-white/10"), 1000);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "flex flex-col gap-0.5 border-l-2 text-[12px] pl-2.5 py-0.5 rounded-r cursor-pointer transition select-none max-w-[280px] md:max-w-[400px] overflow-hidden",
+                                            isOwn
+                                                ? "border-background/30 bg-black/20 text-background/80 hover:bg-background/10"
+                                                : "border-primary/50 bg-white/5 text-muted-foreground hover:bg-white/10"
+                                        )}
+                                    >
+                                        <span className="font-semibold text-[11px]">
+                                            {message.replyTo.senderId === myUserId ? "You" : (message.replyTo.sender?.displayName ?? "User")}
+                                        </span>
+                                        <span className="truncate text-xs opacity-90">
+                                            {message.replyTo.content}
+                                        </span>
+                                    </div>
+                                )}
+                                {/* ── Forwarded Label ── */}
+                                {message.isForwarded && (
                                     <span className={cn(
-                                        "flex items-center gap-0.5 font-bold uppercase tracking-wider text-[8px]",
-                                        isOwn ? "text-background/70" : "text-emerald-400"
+                                        "flex items-center gap-1 text-[10px] font-medium opacity-60 -mb-0.5",
+                                        isOwn ? "text-background/70" : "text-muted-foreground"
                                     )}>
-                                        <Pin className="h-2.5 w-2.5 fill-current shrink-0 rotate-45" />
-                                        <span>Pinned</span>
+                                        <Forward className="h-2.5 w-2.5 shrink-0" />
+                                        Forwarded
                                     </span>
-                                    <span className="opacity-50">·</span>
-                                </>
-                            )}
-                            {message.savedIn && message.savedIn.length > 0 && (
-                                <>
-                                    <span className={cn(
-                                        "flex items-center gap-0.5 font-bold uppercase tracking-wider text-[8px]",
-                                        isOwn ? "text-background/70" : "text-main"
-                                    )}>
-                                        <Bookmark className="h-2.5 w-2.5 fill-current shrink-0" />
-                                        <span>Saved</span>
-                                    </span>
-                                    <span className="opacity-50">·</span>
-                                </>
-                            )}
-                            <span>{formatTime(message.createdAt)}</span>
-                            {message.editedAt && (
-                                <span className="italic text-main font-semibold">edited</span>
-                            )}
-                            {isOwn && (
-                                <span className="inline-flex">
-                                    {isRead ? (
-                                        <CheckCheck className="h-3 w-3 text-cyan-400 animate-pulse" style={{ animationDuration: "2s" }} />
-                                    ) : (
-                                        <Check className="h-3 w-3 text-background/30" />
+                                )}
+                                {message.attachments && message.attachments.length > 0 ? (
+                                    <div className="flex flex-col gap-2.5">
+                                        {/* Render media files (Images & Videos) */}
+                                        {message.attachments.some(att => att.type === "IMAGE" || att.type === "VIDEO") && (
+                                            <div className={cn(
+                                                "grid gap-1.5 rounded-lg overflow-hidden",
+                                                message.attachments.filter(att => att.type === "IMAGE" || att.type === "VIDEO").length > 1 ? "grid-cols-2" : "grid-cols-1"
+                                            )}>
+                                                {message.attachments.map((att) => {
+                                                    if (att.type === "IMAGE") {
+                                                        return (
+                                                            <div
+                                                                key={att.id}
+                                                                className="relative max-w-full overflow-hidden rounded-md border border-white/[0.04] bg-black/10 cursor-pointer hover:opacity-90 transition"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setLightboxSrc(att.fileUrl);
+                                                                    setLightboxType("IMAGE");
+                                                                    setLightboxFileName(att.storageKey.split("-").slice(1).join("-"));
+                                                                    setLightboxOpen(true);
+                                                                }}
+                                                            >
+                                                                <img
+                                                                    src={att.fileUrl}
+                                                                    alt="Attached image"
+                                                                    className="max-h-[300px] w-full object-cover"
+                                                                />
+                                                            </div>
+                                                        );
+                                                    } else if (att.type === "VIDEO") {
+                                                        return (
+                                                            <div
+                                                                key={att.id}
+                                                                className="relative rounded-md overflow-hidden border border-white/[0.04] bg-black cursor-pointer group/video"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setLightboxSrc(att.fileUrl);
+                                                                    setLightboxType("VIDEO");
+                                                                    setLightboxFileName(att.storageKey.split("-").slice(1).join("-"));
+                                                                    setLightboxOpen(true);
+                                                                }}
+                                                            >
+                                                                <video
+                                                                    src={att.fileUrl}
+                                                                    className="max-h-[300px] w-full object-contain pointer-events-none"
+                                                                    preload="metadata"
+                                                                />
+                                                                {/* Play overlay icon */}
+                                                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-100 group-hover/video:bg-black/40 transition-colors">
+                                                                    <div className="w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition active:scale-95">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-white ml-0.5">
+                                                                            <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+                                                                        </svg>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* Render Voice Notes */}
+                                        {message.attachments.filter(att => att.type === "VOICE").map((att) => (
+                                            <VoicePlayer
+                                                key={att.id}
+                                                src={att.fileUrl}
+                                                duration={(att.metadata as any)?.duration || 0}
+                                                isOwn={isOwn}
+                                            />
+                                        ))}
+
+                                        {/* Render Documents / Other Files */}
+                                        {message.attachments.filter(att => att.type === "DOCUMENT").map((att) => (
+                                            <a
+                                                key={att.id}
+                                                href={att.fileUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={cn(
+                                                    "flex items-center gap-2.5 p-2 rounded-xl border text-xs transition duration-150 active:scale-98 select-text",
+                                                    isOwn
+                                                        ? "bg-black/10 border-black/10 text-background hover:bg-black/15"
+                                                        : "bg-surface-elevated border-white/[0.04] text-foreground hover:bg-white/5"
+                                                )}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <Paperclip className="h-4 w-4 shrink-0 opacity-70" />
+                                                <div className="flex flex-col min-w-0 flex-1">
+                                                    <span className="font-semibold truncate">{att.storageKey.split("-").slice(1).join("-") || "document"}</span>
+                                                    <span className="text-[10px] opacity-60">{(att.size / 1024 / 1024).toFixed(2)} MB</span>
+                                                </div>
+                                            </a>
+                                        ))}
+
+                                        {/* Render text caption underneath if present */}
+                                        {message.content && (
+                                            <span className="text-inherit select-text px-0.5">{message.content}</span>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <span className="select-text">{message.content}</span>
+                                )}
+                                <div className={cn(
+                                    "mt-1 flex items-center justify-end gap-1.5 text-[10px] tracking-wide",
+                                    isOwn ? "text-background/50" : "text-muted-foreground"
+                                )}>
+                                    {message.isPinned && (
+                                        <>
+                                            <span className={cn(
+                                                "flex items-center gap-0.5 font-bold uppercase tracking-wider text-[8px]",
+                                                isOwn ? "text-background/70" : "text-emerald-400"
+                                            )}>
+                                                <Pin className="h-2.5 w-2.5 fill-current shrink-0 rotate-45" />
+                                                <span>Pinned</span>
+                                            </span>
+                                            <span className="opacity-50">·</span>
+                                        </>
                                     )}
-                                </span>
-                            )}
-                        </div>
+                                    {message.savedIn && message.savedIn.length > 0 && (
+                                        <>
+                                            <span className={cn(
+                                                "flex items-center gap-0.5 font-bold uppercase tracking-wider text-[8px]",
+                                                isOwn ? "text-background/70" : "text-main"
+                                            )}>
+                                                <Bookmark className="h-2.5 w-2.5 fill-current shrink-0" />
+                                                <span>Saved</span>
+                                            </span>
+                                            <span className="opacity-50">·</span>
+                                        </>
+                                    )}
+                                    <span>{formatTime(message.createdAt)}</span>
+                                    {message.editedAt && (
+                                        <span className="italic text-main font-semibold">edited</span>
+                                    )}
+                                    {isOwn && (
+                                        <span className="inline-flex">
+                                            {isRead ? (
+                                                <CheckCheck className="h-3 w-3 text-cyan-400 animate-pulse" style={{ animationDuration: "2s" }} />
+                                            ) : (
+                                                <Check className="h-3 w-3 text-background/30" />
+                                            )}
+                                        </span>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* ── Reactions Row ── */}
-                    {Object.keys(reactionsGrouped).length > 0 && (
+                    {!isDeleted && Object.keys(reactionsGrouped).length > 0 && (
                         <div className={cn(
                             "flex flex-wrap items-center gap-1 mt-1 z-10",
                             isOwn ? "justify-end" : "justify-start"

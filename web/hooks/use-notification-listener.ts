@@ -31,32 +31,51 @@ export function useNotificationListener() {
                 try {
                     const registration = await navigator.serviceWorker.register("/sw.js");
 
-                    // Always unsubscribe any stale/old subscription first
-                    // (fixes Vercel deployments where VAPID key or endpoint may have changed)
+                    // Reuse existing subscription if possible to avoid rotating endpoints on every load
                     const existing = await registration.pushManager.getSubscription();
+                    let subscription = existing;
+
                     if (existing) {
-                        await existing.unsubscribe();
+                        try {
+                            const subscriptionJson = existing.toJSON();
+                            const subscriptionPayload = {
+                                endpoint: subscriptionJson.endpoint,
+                                keys: {
+                                    p256dh: subscriptionJson.keys?.p256dh,
+                                    auth: subscriptionJson.keys?.auth,
+                                },
+                            };
+                            await NotificationService.registerWebPush(subscriptionPayload);
+                        } catch (err) {
+                            console.warn("[Vyra] Stale subscription detected, resetting...", err);
+                            await existing.unsubscribe();
+                            subscription = null;
+                        }
                     }
 
-                    const VAPID_PUBLIC_KEY = "BBPtl8vPX__56VJ5wy9pCtb-VwuzawvweSh6Gu0m7C2MALy92yA1zaSWqzMB5PGADBAQWdIO655RB-l0NjcrBAE";
-                    const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+                    if (!subscription) {
+                        const VAPID_PUBLIC_KEY = "BBPtl8vPX__56VJ5wy9pCtb-VwuzawvweSh6Gu0m7C2MALy92yA1zaSWqzMB5PGADBAQWdIO655RB-l0NjcrBAE";
+                        const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
 
-                    const subscription = await registration.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: convertedKey,
-                    });
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: convertedKey,
+                        });
 
-                    const subscriptionJson = subscription.toJSON();
-                    const subscriptionPayload = {
-                        endpoint: subscriptionJson.endpoint,
-                        keys: {
-                            p256dh: subscriptionJson.keys?.p256dh,
-                            auth: subscriptionJson.keys?.auth,
-                        },
-                    };
+                        const subscriptionJson = subscription.toJSON();
+                        const subscriptionPayload = {
+                            endpoint: subscriptionJson.endpoint,
+                            keys: {
+                                p256dh: subscriptionJson.keys?.p256dh,
+                                auth: subscriptionJson.keys?.auth,
+                            },
+                        };
 
-                    await NotificationService.registerWebPush(subscriptionPayload);
-                    console.log("[Vyra] Web Push subscription registered ✅");
+                        await NotificationService.registerWebPush(subscriptionPayload);
+                        console.log("[Vyra] Fresh Web Push subscription registered ✅");
+                    } else {
+                        console.log("[Vyra] Web Push subscription verified ✅");
+                    }
                 } catch (err) {
                     console.warn("[Vyra] Web Push registration failed:", err);
                 }

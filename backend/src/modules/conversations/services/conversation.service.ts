@@ -69,4 +69,17 @@ export class ConversationsService {
 
         return this.conversationRepository.delete(id);
     }
+
+    async clearConversationMessages(id: string) {
+        const conversation =
+            await this.conversationRepository.findById(id);
+
+        if (!conversation) {
+            throw new NotFoundException(
+                "Conversation not found.",
+            );
+        }
+
+        return this.conversationRepository.clearMessages(id);
+    }
 }

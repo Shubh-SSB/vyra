@@ -5,6 +5,8 @@ import { ArrowLeft, Info, MoreHorizontal, Sparkles, X, Forward, Trash, Trash2, E
 import { cn } from "@/lib/utils";
 import IconButton from "@/components/ui/icon-button";
 import Image from "next/image";
+import { useDeleteConversation, useClearConversation } from "@/tanstack/queries/conversation.query";
+import ConfirmActionModal from "@/components/modal/confirm-action.modal";
 
 export type ChatHeaderUser = {
     displayName: string;
@@ -15,6 +17,7 @@ export type ChatHeaderUser = {
 };
 
 type Props = {
+    conversationId: string | null;
     user: ChatHeaderUser | null;
     onBack: () => void;
     onToggleContext: () => void;
@@ -91,6 +94,7 @@ function Avatar({ user, size }: { user: ChatHeaderUser | null; size: "sm" | "md"
 }
 
 export default function ChatHeader({
+    conversationId,
     user,
     onBack,
     onToggleContext,
@@ -107,10 +111,16 @@ export default function ChatHeader({
     selectedOwnCount = 0,
 }: Props) {
     const [showSelectMenu, setShowSelectMenu] = useState(false);
+    const [showActionsMenu, setShowActionsMenu] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [confirmClear, setConfirmClear] = useState(false);
+
+    const deleteChat = useDeleteConversation();
+    const clearChat = useClearConversation();
 
     if (selectionMode) {
         return (
-            <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-[#18181b]/95 px-6 backdrop-blur-xl transition-all duration-300">
+            <header className="relative z-20 flex h-16 shrink-0 items-center justify-between border-b border-border bg-[#18181b]/95 px-6 backdrop-blur-xl transition-all duration-300">
                 {/* Left: Exit and Selection Count */}
                 <div className="flex items-center gap-4">
                     <button
@@ -156,13 +166,25 @@ export default function ChatHeader({
                     {showSelectMenu && (
                         <>
                             {/* Backdrop close trap */}
-                            <div className="fixed inset-0 z-90" onClick={() => setShowSelectMenu(false)} />
-                            <div className="absolute right-0 top-10 z-50 w-48 rounded-xl border border-white/10 bg-[#1c1c1f]/95 py-1 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-1 duration-100">
+                            <div
+                                className="fixed inset-0 z-40"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setTimeout(() => setShowSelectMenu(false), 50);
+                                }}
+                            />
+                            <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-10 z-50 w-48 rounded-xl border border-white/10 bg-[#1c1c1f]/25 py-1 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-1 duration-100"
+                            >
                                 {selectedOwnCount > 0 && onBulkDeleteForEveryone && (
                                     <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
                                             onBulkDeleteForEveryone();
-                                            setShowSelectMenu(false);
+                                            setTimeout(() => setShowSelectMenu(false), 50);
                                         }}
                                         className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] font-medium text-red-400 hover:bg-white/[0.06] transition"
                                     >
@@ -172,9 +194,11 @@ export default function ChatHeader({
                                 )}
                                 {onBulkDeleteForMe && (
                                     <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
                                             onBulkDeleteForMe();
-                                            setShowSelectMenu(false);
+                                            setTimeout(() => setShowSelectMenu(false), 50);
                                         }}
                                         className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] font-medium text-red-400 hover:bg-white/[0.06] transition"
                                     >
@@ -184,9 +208,11 @@ export default function ChatHeader({
                                 )}
                                 {onBulkHide && (
                                     <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
                                             onBulkHide();
-                                            setShowSelectMenu(false);
+                                            setTimeout(() => setShowSelectMenu(false), 50);
                                         }}
                                         className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition border-t border-white/[0.06]"
                                     >
@@ -203,7 +229,7 @@ export default function ChatHeader({
     }
 
     return (
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background px-6">
+        <header className="relative z-20 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background px-6">
             {/* Mobile */}
             <div className="flex items-center gap-3 md:hidden">
                 <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -259,10 +285,82 @@ export default function ChatHeader({
                 <IconButton onClick={onToggleContext}>
                     <Info className="h-4 w-4" strokeWidth={1.5} />
                 </IconButton>
-                <IconButton>
-                    <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
-                </IconButton>
+                <div className="relative">
+                    <IconButton onClick={(e: any) => { e.stopPropagation(); setShowActionsMenu((v) => !v); }}>
+                        <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+                    </IconButton>
+                    {showActionsMenu && conversationId && (
+                        <>
+                            <div
+                                className="fixed inset-0 z-40"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setTimeout(() => setShowActionsMenu(false), 50);
+                                }}
+                            />
+                            <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-10 z-50 w-48 rounded-xl border border-white/10 bg-[#1c1c1f] py-1.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-1 duration-100 flex flex-col gap-0.5"
+                            >
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setConfirmClear(true);
+                                        setShowActionsMenu(false);
+                                    }}
+                                    className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition cursor-pointer"
+                                >
+                                    <Trash className="h-3.5 w-3.5" />
+                                    Clear Chat History
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setConfirmDelete(true);
+                                        setShowActionsMenu(false);
+                                    }}
+                                    className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-red-400 hover:bg-white/[0.06] transition border-t border-white/[0.06] cursor-pointer"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Delete Chat
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
+
+            {conversationId && (
+                <>
+                    <ConfirmActionModal
+                        open={confirmClear}
+                        title="Clear Chat History"
+                        description="Are you sure you want to clear all messages in this chat? This action cannot be undone."
+                        confirmLabel="Clear History"
+                        confirmVariant="red"
+                        onConfirm={async () => {
+                            await clearChat.mutateAsync(conversationId);
+                        }}
+                        onCancel={() => setConfirmClear(false)}
+                    />
+
+                    <ConfirmActionModal
+                        open={confirmDelete}
+                        title="Delete Chat"
+                        description="Are you sure you want to delete this chat? All messages and attachments will be deleted permanently."
+                        confirmLabel="Delete Chat"
+                        confirmVariant="red"
+                        onConfirm={async () => {
+                            await deleteChat.mutateAsync(conversationId);
+                            onBack();
+                        }}
+                        onCancel={() => setConfirmDelete(false)}
+                    />
+                </>
+            )}
         </header>
     );
 }

@@ -252,4 +252,10 @@ export class ConversationRepository {
             },
         });
     }
+
+    async clearMessages(conversationId: string) {
+        return this.prisma.message.deleteMany({
+            where: { conversationId },
+        });
+    }
 }

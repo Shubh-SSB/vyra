@@ -121,12 +121,12 @@ export default function ChatArea({
         setEditingMessage(message);
     };
 
-    // Reset reply state on active conversation change
+    // Reset reply state on active conversation change or mobile view transition
     useEffect(() => {
         setReplyingTo(null);
         setEditingMessage(null);
         exitSelectMode();
-    }, [conversationId]);
+    }, [conversationId, mobileView]);
 
     const updateEditedMessageInCache = (
         updatedMessage: Pick<Message, "id" | "content" | "editedAt">,
@@ -389,6 +389,7 @@ export default function ChatArea({
                 />
 
                 <ChatHeader
+                    conversationId={conversationId}
                     user={otherUser}
                     onBack={goBackToList}
                     onToggleContext={onToggleProfile ?? (() => { })}

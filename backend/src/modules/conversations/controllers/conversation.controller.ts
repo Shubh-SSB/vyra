@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, Get, Param } from "@nestjs/common";
+import { Controller, Post, Body, UseGuards, Req, Get, Param, Delete } from "@nestjs/common";
 import { JwtAuthGuard } from "src/modules/auth/guards/jwt-auth.guard";
 import { ConversationsService } from '../services/conversation.service';
 import type { RequestWithUser } from '../../../common/interfaces/request-with-user.interface';
@@ -54,6 +54,28 @@ export class ConversationsController {
         return ApiResponseUtil.success(
             conversation,
             "Conversation fetched successfully.",
+        );
+    }
+
+    @Delete(":id")
+    async deleteConversation(
+        @Param("id") id: string,
+    ) {
+        await this.conversationsService.deleteConversation(id);
+        return ApiResponseUtil.success(
+            null,
+            "Conversation deleted successfully.",
+        );
+    }
+
+    @Delete(":id/messages")
+    async clearConversationMessages(
+        @Param("id") id: string,
+    ) {
+        await this.conversationsService.clearConversationMessages(id);
+        return ApiResponseUtil.success(
+            null,
+            "Conversation messages cleared successfully.",
         );
     }
 }

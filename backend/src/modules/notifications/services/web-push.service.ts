@@ -53,8 +53,12 @@ export class WebPushService implements OnModuleInit {
                 keys: sub.keys as any,
             };
 
-            return webpush.sendNotification(pushSubscription, payload).catch((err) => {
-                console.error("Failed to send web push notification", err);
+            return webpush.sendNotification(pushSubscription, payload, {
+                urgency: "high",    // Tell FCM/APNs to deliver immediately (wake device)
+                TTL: 86400,         // Keep in queue for 24h if device is offline
+            }).catch((err) => {
+                console.error("Failed to send web push notification", err.statusCode, err.body);
+                // 410 Gone / 404 Not Found = subscription expired, remove it
                 if (err.statusCode === 410 || err.statusCode === 404) {
                     return this.deleteSubscription(sub.endpoint);
                 }

@@ -43,10 +43,10 @@ export interface VyraIconProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function VyraIcon({ size, width, height, className, imageClassName, ...props }: VyraIconProps) {
-    const w = size ?? width ?? 120;
-    const h = size ?? height ?? 120;
+    const w = size ?? width ?? 100;
+    const h = size ?? height ?? 100;
     return (
-        <div className={cn("relative flex items-center justify-center", className)} {...props}>
+        <div className={cn("relative flex items-center rotate-360 justify-center", className)} {...props}>
             <Image
                 src="/logo-trans.png"
                 alt="vyra-logo"

@@ -38,8 +38,7 @@ export default function MainLayout({
             <aside className="hidden fixed left-0 top-0 bottom-0 w-[60px] shrink-0 flex-col items-center justify-between border-r border-border bg-[#0e0e10] py-3 md:flex">
                 <div className="flex flex-col items-center gap-6">
                     <Link href="/">
-                        {/* <VyraMark /> */}
-                        <VyraIcon />
+                        <VyraIcon height={40} width={40} />
                     </Link>
                     <RailIcon label="Chats" active />
                     <RailIcon label="Pinned" icon={<Pin className="h-4 w-4" strokeWidth={1.5} />} />

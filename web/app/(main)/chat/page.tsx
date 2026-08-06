@@ -375,7 +375,7 @@ function ChatPageContent() {
         <div className="relative flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-[#0E0E10]/90 px-4 backdrop-blur-xl md:hidden">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <VyraIcon />
+            <VyraIcon height={20} width={20} />
             <span className="text-lg font-bold tracking-tight text-foreground">
               Vyra
             </span>
