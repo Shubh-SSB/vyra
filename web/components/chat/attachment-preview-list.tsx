@@ -1,15 +1,16 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, Crop } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { UploadingFile } from "@/types/attachment.types";
 
 type Props = {
     attachments: UploadingFile[];
     onRemove: (id: string) => void;
+    onEdit?: (file: UploadingFile) => void;
 };
 
-export default function AttachmentPreviewList({ attachments, onRemove }: Props) {
+export default function AttachmentPreviewList({ attachments, onRemove, onEdit }: Props) {
     if (attachments.length === 0) return null;
 
     return (
@@ -59,6 +60,18 @@ export default function AttachmentPreviewList({ attachments, onRemove }: Props) 
                         >
                             <X className="h-3 w-3" />
                         </button>
+
+                        {/* Crop/Edit Button */}
+                        {att.type === "IMAGE" && onEdit && (
+                            <button
+                                type="button"
+                                onClick={() => onEdit(att)}
+                                className="absolute bottom-1 right-1 bg-black/60 hover:bg-black/85 text-white rounded-full p-1 opacity-0 group-hover/thumb:opacity-100 transition-opacity z-20 cursor-pointer"
+                                title="Crop/Edit Image"
+                            >
+                                <Crop className="h-3 w-3" />
+                            </button>
+                        )}
                     </motion.div>
                 ))}
             </AnimatePresence>

@@ -11,6 +11,7 @@ import LiveWaveform from "./live-waveform";
 import AttachmentMenu from "./attachment-menu";
 import AttachmentPreviewList from "./attachment-preview-list";
 import { cn } from "@/lib/utils";
+import ImageEditorModal from "@/components/modal/image-editor.modal";
 
 type Props = {
     onSend: (content: string, type?: "TEXT" | "VOICE", attachments?: { id: string }[]) => void;
@@ -48,6 +49,10 @@ export default function ChatComposer({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [attachments, setAttachments] = useState<UploadingFile[]>([]);
     const isProcessingUploads = attachments.some(f => f.status === "uploading");
+
+    // Image Editor State
+    const [editingAttachmentId, setEditingAttachmentId] = useState<string | null>(null);
+    const editingAttachment = attachments.find(att => att.id === editingAttachmentId);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
 
@@ -142,7 +147,9 @@ export default function ChatComposer({
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        const newUploads: UploadingFile[] = Array.from(files).map((file) => {
+        const fileArray = Array.from(files);
+
+        const newUploads: UploadingFile[] = fileArray.map((file) => {
             const ext = file.name.split(".").pop()?.toLowerCase() || "";
             let type: "IMAGE" | "VIDEO" | "DOCUMENT" = "DOCUMENT";
 
@@ -167,6 +174,47 @@ export default function ChatComposer({
 
         // Trigger upload for each selected file
         newUploads.forEach((upload) => uploadFile(upload));
+    };
+
+    const handleImageEditorConfirm = (croppedFile: File) => {
+        if (!editingAttachmentId) return;
+
+        const oldAttachment = attachments.find((att) => att.id === editingAttachmentId);
+        if (oldAttachment && oldAttachment.previewUrl) {
+            URL.revokeObjectURL(oldAttachment.previewUrl);
+        }
+
+        const newPreviewUrl = URL.createObjectURL(croppedFile);
+
+        setAttachments((prev) =>
+            prev.map((item) =>
+                item.id === editingAttachmentId
+                    ? {
+                          ...item,
+                          file: croppedFile,
+                          previewUrl: newPreviewUrl,
+                          progress: 0,
+                          status: "uploading",
+                      }
+                    : item
+            )
+        );
+
+        const updatedAttachment = {
+            id: editingAttachmentId,
+            file: croppedFile,
+            type: "IMAGE" as const,
+            previewUrl: newPreviewUrl,
+            progress: 0,
+            status: "uploading" as const,
+        };
+
+        uploadFile(updatedAttachment);
+        setEditingAttachmentId(null);
+    };
+
+    const handleImageEditorCancel = () => {
+        setEditingAttachmentId(null);
     };
 
     const uploadFile = async (upload: UploadingFile) => {
@@ -427,6 +475,7 @@ export default function ChatComposer({
                 <AttachmentPreviewList
                     attachments={attachments}
                     onRemove={removeAttachment}
+                    onEdit={(att) => setEditingAttachmentId(att.id)}
                 />
 
                 {/* Input row */}
@@ -548,6 +597,14 @@ export default function ChatComposer({
                     Good communication is the bridge between confusion and clarity.
                 </p>
             </div>
+
+            <ImageEditorModal
+                open={!!editingAttachmentId}
+                imageSrc={editingAttachment?.previewUrl || ""}
+                fileName={editingAttachment?.file.name || ""}
+                onConfirm={handleImageEditorConfirm}
+                onCancel={handleImageEditorCancel}
+            />
         </div>
     );
 }
