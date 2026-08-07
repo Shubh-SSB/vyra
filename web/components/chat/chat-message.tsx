@@ -176,6 +176,243 @@ function MenuDivider() {
     return <div className="my-1 h-px bg-white/[0.06] mx-2" />;
 }
 
+// ─── Rich Card Bubble ──────────────────────────────────────────────────────────
+
+function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObject: any; isOwn: boolean; socket?: any; conversationId?: string }) {
+    const [isPlaying, setIsPlaying] = useState(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [isLoadingStream, setIsLoadingStream] = useState(false);
+
+    const togglePlay = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!richObject.metadata?.preview) return;
+
+        if (isPlaying) {
+            audioRef.current?.pause();
+            setIsPlaying(false);
+        } else {
+            if (audioRef.current) {
+                audioRef.current.pause();
+            }
+            audioRef.current = new Audio(richObject.metadata.preview);
+            audioRef.current.play().catch(err => console.warn("Audio preview autoplay blocked:", err));
+            setIsPlaying(true);
+            audioRef.current.onended = () => {
+                setIsPlaying(false);
+            };
+        }
+    };
+
+    const handleListenTogether = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!socket || !conversationId) return;
+        if (isLoadingStream) return;
+
+        setIsLoadingStream(true);
+        try {
+            // Dynamically import to avoid circular deps
+            const { ExploreService } = await import("@/services/explore.service");
+            const streamUrl = await ExploreService.getFullStream(
+                richObject.title || "",
+                richObject.subtitle || ""
+            );
+
+            // Emit sync request to the other user
+            socket.emit("musicSyncRequest", {
+                conversationId,
+                trackId: richObject.id || `${richObject.title}-${richObject.subtitle}`,
+                title: richObject.title || "Unknown",
+                artist: richObject.subtitle || "Unknown",
+                coverUrl: richObject.image || "",
+                streamUrl: streamUrl || richObject.metadata?.preview || "",
+            });
+
+            // Dispatch custom event so the chat page picks it up and opens our own player
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("vyra:listenTogether:host", {
+                    detail: {
+                        conversationId,
+                        title: richObject.title || "Unknown",
+                        artist: richObject.subtitle || "Unknown",
+                        coverUrl: richObject.image || "",
+                        streamUrl: streamUrl || richObject.metadata?.preview || "",
+                    },
+                }));
+            }
+        } catch (err) {
+            console.warn("[RichCardBubble] Failed to start listen together:", err);
+        } finally {
+            setIsLoadingStream(false);
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+            }
+        };
+    }, []);
+
+    const typeConfigs: Record<string, { label: string; icon: string; badgeClass: string }> = {
+        MUSIC: { label: "Music", icon: "🎵", badgeClass: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
+        MOVIE: { label: "Movie", icon: "🎬", badgeClass: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+        TV: { label: "TV Show", icon: "📺", badgeClass: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+        BOOK: { label: "Book", icon: "📚", badgeClass: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+        GAME: { label: "Game", icon: "🎮", badgeClass: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
+        GITHUB: { label: "GitHub Repo", icon: "💻", badgeClass: "text-pink-400 bg-pink-500/10 border-pink-500/20" },
+        AI_MODEL: { label: "AI Model", icon: "🤖", badgeClass: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20" },
+        PHOTO: { label: "Photo / Image", icon: "📷", badgeClass: "text-teal-400 bg-teal-500/10 border-teal-500/20" },
+    };
+
+    const config = typeConfigs[richObject.type] || { label: "Explore Object", icon: "⚡", badgeClass: "text-muted-foreground bg-white/5 border-white/10" };
+
+    return (
+        <div className="w-full max-w-[280px] sm:max-w-[320px] rounded-2xl border border-white/10 bg-black/40 overflow-hidden shadow-lg backdrop-blur-md select-text text-left">
+            {/* Backdrop Blur Poster Image */}
+            {richObject.image && (
+                <div className="relative h-44 w-full bg-black/40 overflow-hidden border-b border-white/[0.06] flex items-center justify-center">
+                    <img 
+                        src={richObject.image} 
+                        alt={richObject.title} 
+                        className="absolute inset-0 w-full h-full object-cover blur-md opacity-25 scale-110" 
+                    />
+                    <img 
+                        src={richObject.image} 
+                        alt={richObject.title} 
+                        className="relative z-10 w-full h-full object-contain mx-auto" 
+                    />
+                </div>
+            )}
+
+            {/* Content Details */}
+            <div className="p-4 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                    <span className={cn("px-2.5 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider", config.badgeClass)}>
+                        {config.icon} {config.label}
+                    </span>
+                    
+                    {richObject.metadata?.rating !== undefined && (
+                        <span className="text-[10px] font-bold text-yellow-400">
+                            ★ {richObject.metadata.rating.toFixed(1)}
+                        </span>
+                    )}
+                    {richObject.metadata?.stars !== undefined && (
+                        <span className="text-[10px] font-bold text-yellow-400">
+                            ★ {richObject.metadata.stars} stars
+                        </span>
+                    )}
+                    {richObject.metadata?.downloads !== undefined && (
+                        <span className="text-[10px] font-medium text-cyan-400">
+                            📥 {richObject.metadata.downloads.toLocaleString()}
+                        </span>
+                    )}
+                </div>
+
+                <div className="leading-tight">
+                    <h4 className="text-sm font-bold text-foreground line-clamp-1">{richObject.title}</h4>
+                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{richObject.subtitle}</p>
+                </div>
+
+                {richObject.metadata?.overview && (
+                    <p className="text-[11px] text-muted-foreground/90 leading-normal line-clamp-3 bg-white/[0.02] border border-white/[0.04] p-2 rounded-xl">
+                        {richObject.metadata.overview}
+                    </p>
+                )}
+                {richObject.metadata?.description && (
+                    <p className="text-[11px] text-muted-foreground/90 leading-normal line-clamp-3 bg-white/[0.02] border border-white/[0.04] p-2 rounded-xl">
+                        {richObject.metadata.description}
+                    </p>
+                )}
+
+                {(richObject.metadata?.album || richObject.metadata?.language || richObject.metadata?.platforms) && (
+                    <div className="text-[10px] text-muted-foreground flex flex-wrap gap-x-2 gap-y-1 mt-1 opacity-70">
+                        {richObject.metadata.album && <span>💿 {richObject.metadata.album}</span>}
+                        {richObject.metadata.language && <span>🌐 {richObject.metadata.language}</span>}
+                        {richObject.metadata.platforms && Array.isArray(richObject.metadata.platforms) && (
+                            <span>🎮 {richObject.metadata.platforms.slice(0, 3).join(", ")}</span>
+                        )}
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-2 mt-2 border-t border-white/[0.04] pt-3">
+                    {richObject.type === "MUSIC" && richObject.metadata?.preview && (
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={togglePlay}
+                                className={cn(
+                                    "flex-1 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer",
+                                    isPlaying 
+                                        ? "bg-red-500/10 text-red-400 border border-red-500/20" 
+                                        : "bg-white/10 text-foreground hover:bg-white/15 border border-white/5"
+                                )}
+                            >
+                                {isPlaying ? (
+                                    <>
+                                        <div className="flex items-end gap-0.5 h-2.5">
+                                            <div className="w-0.5 bg-red-400 animate-[bounce_0.8s_infinite_100ms] h-full" />
+                                            <div className="w-0.5 bg-red-400 animate-[bounce_0.8s_infinite_300ms] h-1/2" />
+                                            <div className="w-0.5 bg-red-400 animate-[bounce_0.8s_infinite_200ms] h-3/4" />
+                                        </div>
+                                        Pause
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z" />
+                                        </svg>
+                                        Preview
+                                    </>
+                                )}
+                            </button>
+
+                            {/* Listen Together button — only shown inside a chat with an active socket */}
+                            {socket && conversationId && (
+                                <button
+                                    type="button"
+                                    onClick={handleListenTogether}
+                                    disabled={isLoadingStream}
+                                    className={cn(
+                                        "flex-1 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border",
+                                        isLoadingStream
+                                            ? "bg-emerald-500/5 text-emerald-400/50 border-emerald-500/10 cursor-wait"
+                                            : "bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 text-emerald-400 border-emerald-500/20 hover:from-emerald-500/20 hover:to-cyan-500/20"
+                                    )}
+                                >
+                                    {isLoadingStream ? (
+                                        <div className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-emerald-400/30 border-t-emerald-400" />
+                                    ) : (
+                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                            <circle cx="9" cy="7" r="4" />
+                                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                        </svg>
+                                    )}
+                                    Listen Together
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {richObject.actions?.open && (
+                        <a
+                            href={richObject.actions.open}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex-1 h-8 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                        >
+                            View Source
+                        </a>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -197,6 +434,7 @@ type Props = {
     onEnterSelectMode: (messageId: string) => void;
     onPin?: (messageId: string, pinnedDuration?: string | null) => void;
     onUnpin?: (messageId: string) => void;
+    socket?: any;
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -207,6 +445,7 @@ function ChatMessage({
     onDeleteForMe, onDeleteForEveryone, onHide, onForward,
     selectionMode, isSelected, onToggleSelect, onEnterSelectMode,
     onPin, onUnpin,
+    socket,
 }: Props) {
     // Swipe gestures
     const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -250,6 +489,22 @@ function ChatMessage({
 
     const canEdit = isOwn && !message.deletedAt && Date.now() <= new Date(message.createdAt).getTime() + 15 * 60 * 1000;
     const isDeleted = !!message.deletedAt;
+
+    let richObject: any = null;
+    let isRichCard = false;
+    if (!isDeleted && message.content) {
+        try {
+            if (message.content.includes('"vyraObjectType":"RICH_CARD"')) {
+                const parsed = JSON.parse(message.content);
+                if (parsed.vyraObjectType === "RICH_CARD" && parsed.richObject) {
+                    richObject = parsed.richObject;
+                    isRichCard = true;
+                }
+            }
+        } catch (e) {
+            // not JSON
+        }
+    }
 
     // Group reactions
     const reactionsGrouped = message.reactions?.reduce((acc, curr) => {
@@ -743,7 +998,9 @@ function ChatMessage({
                                         Forwarded
                                     </span>
                                 )}
-                                {message.attachments && message.attachments.length > 0 ? (
+                                {isRichCard ? (
+                                    <RichCardBubble richObject={richObject} isOwn={isOwn} socket={socket} conversationId={message.conversationId} />
+                                ) : message.attachments && message.attachments.length > 0 ? (
                                     <div className="flex flex-col gap-2.5">
                                         {/* Render media files (Images & Videos) */}
                                         {message.attachments.some(att => att.type === "IMAGE" || att.type === "VIDEO") && (
@@ -798,7 +1055,7 @@ function ChatMessage({
                                                                         </svg>
                                                                     </div>
                                                                 </div>
-                                                            </div>
+                                                             </div>
                                                         );
                                                     }
                                                     return null;

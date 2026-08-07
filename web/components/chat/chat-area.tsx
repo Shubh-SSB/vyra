@@ -48,6 +48,7 @@ type Props = {
     onToggleProfile?: () => void;
     isFriend?: boolean;
     myShowLastSeen?: boolean;
+    socket?: any;
 };
 
 export default function ChatArea({
@@ -65,6 +66,7 @@ export default function ChatArea({
     onToggleProfile,
     isFriend = true,
     myShowLastSeen,
+    socket,
 }: Props) {
     const queryClient = useQueryClient();
     const myUserId = getMyUserId();

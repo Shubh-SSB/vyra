@@ -1,4 +1,4 @@
-export default function IconButton({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
+export default function IconButton({ children, onClick }: { children: React.ReactNode; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
     return (
         <button
             onClick={onClick}

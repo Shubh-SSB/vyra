@@ -276,5 +276,6 @@ export function useChatSocket({
         sendTypingStop,
         markAsRead,
         sendReaction,
+        socket: socketRef.current,
     };
 }

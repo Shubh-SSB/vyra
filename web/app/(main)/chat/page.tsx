@@ -12,10 +12,17 @@ import {
   MoreVertical,
   Bookmark,
   EyeOff,
+  Compass,
+  Send,
+  ArrowLeft,
 } from "lucide-react";
 import { VyraIcon } from "@/components/vyra/logo";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import ExploreCard from "@/components/explore/explore-card";
+import { useDebounce } from "use-debounce";
+import { useExploreSearch } from "@/tanstack/queries/explore.query";
+import ShareObjectModal from "@/components/modal/share-object.modal";
 import SearchInput from "@/components/search/search-input";
 import ChatList from "@/components/chat/chat-list";
 import ChatArea from "@/components/chat/chat-area";
@@ -53,7 +60,7 @@ type Connection = {
 
 /** Mobile view state: 'list' = contacts sidebar, 'chat' = active conversation */
 type MobileView = "list" | "chat";
-type SidebarTab = "chats" | "connections";
+type SidebarTab = "chats" | "connections" | "explore";
 
 function getMyUserId(): string | null {
   try {
@@ -81,11 +88,61 @@ function ChatPageContent() {
 
   const { data: unreadCount = 0 } = useUnreadCount();
 
+  // Explore / Universal Search States
+  const [exploreActive, setExploreActive] = useState(false);
+  const [exploreQuery, setExploreQuery] = useState("");
+  const [exploreFilter, setExploreFilter] = useState<string | undefined>(undefined);
+  const [debouncedExploreQuery] = useDebounce(exploreQuery, 350);
+  const [sharingObject, setSharingObject] = useState<any>(null);
+
+  const { data: exploreResults = [], isLoading: exploreLoading } = useExploreSearch(
+    debouncedExploreQuery,
+    exploreFilter
+  );
+
+  // Audio Preview state
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleTogglePreview = (trackId: string, previewUrl: string) => {
+    if (playingTrackId === trackId) {
+      audioRef.current?.pause();
+      setPlayingTrackId(null);
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      audioRef.current = new Audio(previewUrl);
+      audioRef.current.play().catch((err) => console.warn("Audio preview autoplay blocked:", err));
+      setPlayingTrackId(trackId);
+      audioRef.current.onended = () => {
+        setPlayingTrackId(null);
+      };
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
+  // Pause audio preview when switching views or typing new searches
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setPlayingTrackId(null);
+    }
+  }, [exploreActive, exploreQuery, exploreFilter]);
+
   const searchParams = useSearchParams();
   const convId = searchParams.get("convId");
 
   useEffect(() => {
     if (convId) {
+      setExploreActive(false);
       setActiveId(convId);
       setMobileView("chat");
     }
@@ -145,6 +202,7 @@ function ChatPageContent() {
     sendTypingStop,
     markAsRead,
     sendReaction,
+    socket,
   } = useChatSocket({
     conversationIds,
     onNewMessage: (message, convId) => {
@@ -311,6 +369,7 @@ function ChatPageContent() {
 
   /** Select a conversation — on mobile, push a history entry and switch to chat view */
   const selectConversation = (id: string) => {
+    setExploreActive(false);
     setActiveId(id);
     setMobileView("chat");
     if (window.history.state?.view !== "chat") {
@@ -390,7 +449,7 @@ function ChatPageContent() {
             <MoreVertical className="h-5 w-5" />
 
             {unreadCount > 0 && (
-              <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+              <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text- [9px] font-bold text-white">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
@@ -449,6 +508,19 @@ function ChatPageContent() {
                     Saved Collections
                   </Link>
 
+                  <button
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      setExploreActive(true);
+                      setActiveId(null);
+                      setMobileView("chat");
+                    }}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-white/5 active:bg-white/10 cursor-pointer"
+                  >
+                    <Compass className="h-4 w-4 text-muted-foreground" />
+                    Explore
+                  </button>
+
                   <div className="my-1 h-px bg-white/5" />
 
                   <Link href="/settings" onClick={() => setShowMobileMenu(false)}
@@ -466,34 +538,36 @@ function ChatPageContent() {
           onClose={() => setShowNotifications(false)}
         />
 
-        <div className="px-5 pt-5">
-          <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
-            <button
-              onClick={() => setSidebarTab("chats")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-medium transition-colors",
-                sidebarTab === "chats"
-                  ? "bg-surface-elevated text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Chats
-            </button>
-            <button
-              onClick={() => setSidebarTab("connections")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-medium transition-colors",
-                sidebarTab === "connections"
-                  ? "bg-surface-elevated text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Connections
-            </button>
+        {sidebarTab !== "explore" && (
+          <div className="px-5 pt-5">
+            <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
+              <button
+                onClick={() => setSidebarTab("chats")}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-medium transition-colors",
+                  sidebarTab === "chats"
+                    ? "bg-surface-elevated text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Chats
+              </button>
+              <button
+                onClick={() => setSidebarTab("connections")}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-sm font-medium transition-colors",
+                  sidebarTab === "connections"
+                    ? "bg-surface-elevated text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Users className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Connections
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {sidebarTab === "chats" && (
           <>
@@ -502,8 +576,19 @@ function ChatPageContent() {
                 <h1 className="font-display text-[20px] font-semibold tracking-tight">Inbox</h1>
                 <div className="flex items-center gap-1">
                   <button
+                    onClick={() => {
+                      setExploreActive(true);
+                      setActiveId(null);
+                      setMobileView("chat");
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground cursor-pointer"
+                    title="Explore & Share"
+                  >
+                    <Compass className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
+                  <button
                     onClick={() => setNewChatOpen(true)}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground cursor-pointer"
                   >
                     <Plus className="h-4 w-4" strokeWidth={1.75} />
                   </button>
@@ -551,32 +636,142 @@ function ChatPageContent() {
               });
             }}
           />
-
-
         )}
-      </aside>
-      <ChatArea
-        conversationId={activeId}
-        mobileView={mobileView}
-        goBackToList={goBackToList}
-        typingConversations={typingConversations}
-        connectionStatus={connectionStatus}
-        socketError={socketError}
-        setSocketError={setSocketError}
-        sendMessage={sendMessage}
-        sendTypingStart={sendTypingStart}
-        sendTypingStop={sendTypingStop}
-        sendReaction={sendReaction}
-        onToggleProfile={() => {
-          if (profileOpen) {
-            closeProfile();
-          } else {
-            openProfile();
-          }
-        }}
-        isFriend={isFriend}
-        myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
-      />
+            </aside>
+      {exploreActive ? (
+        <div className={cn(
+          "flex-1 h-full flex flex-col bg-background min-w-0 min-h-0",
+          mobileView === "list" ? "hidden md:flex" : "flex"
+        )}>
+          {/* Header Banner */}
+          <div className="px-8 pt-6 pb-4 border-b border-border/40 bg-surface-secondary/30 backdrop-blur-md shrink-0">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  {/* Mobile Back Button */}
+                  <button
+                    onClick={() => {
+                      setExploreActive(false);
+                      setMobileView("list");
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground md:hidden cursor-pointer -ml-1"
+                    title="Back to Chats"
+                  >
+                    <ArrowLeft className="h-4.5 w-4.5" />
+                  </button>
+                  <h1 className="font-display text-[24px] font-semibold tracking-tight text-foreground">Explore</h1>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">Discover and pin media, publications, projects, and models straight to your chats.</p>
+              </div>
+
+              {/* Search Input */}
+              <div className="relative w-full md:max-w-md shrink-0">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                  strokeWidth={1.75}
+                />
+                <input
+                  value={exploreQuery}
+                  onChange={(e) => setExploreQuery(e.target.value)}
+                  placeholder="Search songs, movies, books, code, models..."
+                  className="h-9 w-full rounded-xl border border-border bg-surface pl-9 pr-4 text-[13px] font-medium text-foreground placeholder:text-muted-foreground/60 focus:border-ring focus:outline-none transition-all shadow-inner"
+                />
+              </div>
+            </div>
+
+            {/* Category Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-4 scrollbar-none shrink-0">
+              {[
+                { label: "All Items", value: undefined },
+                { label: "🎵 Music & Audio", value: "MUSIC" },
+                { label: "🎬 Movies & Shows", value: "MOVIE" },
+                { label: "📚 Books & Literature", value: "BOOK" },
+                { label: "🎮 Video Games", value: "GAME" },
+                { label: "💻 GitHub Repos", value: "GITHUB" },
+                { label: "🤖 AI Models", value: "AI_MODEL" },
+                { label: "📷 Photos & Images", value: "PHOTO" },
+              ].map((badge) => (
+                <button
+                  key={badge.label}
+                  onClick={() => setExploreFilter(badge.value)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-semibold rounded-full border transition whitespace-nowrap cursor-pointer",
+                    exploreFilter === badge.value
+                      ? "bg-primary text-primary-foreground border-primary shadow"
+                      : "bg-surface-elevated/40 border-white/[0.03] text-muted-foreground hover:text-foreground hover:bg-surface-elevated"
+                  )}
+                >
+                  {badge.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Results Grid */}
+          <div className="flex-1 overflow-y-auto px-8 py-6">
+            {exploreLoading && (
+              <div className="flex flex-col items-center justify-center py-32 gap-3">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-muted-foreground font-medium">Querying universal directory...</span>
+              </div>
+            )}
+
+            {!exploreLoading && !debouncedExploreQuery && exploreResults.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-24 text-center max-w-sm mx-auto select-none">
+                <Compass className="h-14 w-14 text-muted-foreground/30 mb-4 animate-[pulse_3s_infinite]" />
+                <p className="text-sm font-semibold text-muted-foreground/80">Search Anything</p>
+                <p className="text-xs text-muted-foreground/60 leading-normal mt-1.5">
+                  Explore integrations with Deezer, TMDB, OpenLibrary, RAWG, GitHub, Hugging Face, and Picsum Photos, then send rich media directly to your active contacts.
+                </p>
+              </div>
+            )}
+
+            {!exploreLoading && (debouncedExploreQuery || exploreFilter === "PHOTO" || exploreFilter === "MUSIC") && exploreResults.length === 0 && (
+              <div className="text-center py-24 text-xs text-muted-foreground">
+                No matching objects found.
+              </div>
+            )}
+
+            {!exploreLoading && (debouncedExploreQuery || exploreFilter === "PHOTO" || exploreFilter === "MUSIC") && exploreResults.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-8">
+                {exploreResults.map((item: any) => (
+                  <ExploreCard
+                    key={item.id}
+                    item={item}
+                    onShare={setSharingObject}
+                    isPlaying={playingTrackId === item.id}
+                    onPlayToggle={handleTogglePreview}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <ChatArea
+          conversationId={activeId}
+          mobileView={mobileView}
+          goBackToList={goBackToList}
+          typingConversations={typingConversations}
+          connectionStatus={connectionStatus}
+          socketError={socketError}
+          setSocketError={setSocketError}
+          sendMessage={sendMessage}
+          sendTypingStart={sendTypingStart}
+          sendTypingStop={sendTypingStop}
+          sendReaction={sendReaction}
+          socket={socket}
+          onToggleProfile={() => {
+            if (profileOpen) {
+              closeProfile();
+            } else {
+              openProfile();
+            }
+          }}
+          isFriend={isFriend}
+          myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
+        />
+      )}
       <AnimatePresence>
         {profileOpen && activeId && (
           <>
@@ -613,6 +808,24 @@ function ChatPageContent() {
           </>
         )}
       </AnimatePresence>
+
+      <ShareObjectModal
+        open={!!sharingObject}
+        onClose={() => setSharingObject(null)}
+        richObject={sharingObject}
+        onSend={(conversationId) => {
+          if (!sharingObject) return false;
+          return sendMessage(
+            JSON.stringify({
+              vyraObjectType: "RICH_CARD",
+              richObject: sharingObject,
+            }),
+            conversationId,
+            null,
+            "TEXT"
+          );
+        }}
+      />
     </div>
   );
 }

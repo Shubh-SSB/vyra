@@ -38,6 +38,7 @@ type Props = {
     onBulkForward: () => void;
     onPin?: (messageId: string, pinnedDuration?: string | null) => void;
     onUnpin?: (messageId: string) => void;
+    socket?: any;
 };
 
 export default function ChatThread({
@@ -67,6 +68,7 @@ export default function ChatThread({
     onBulkForward,
     onPin,
     onUnpin,
+    socket,
 }: Props) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -272,6 +274,7 @@ export default function ChatThread({
                                         onEnterSelectMode={onEnterSelectMode}
                                         onPin={onPin}
                                         onUnpin={onUnpin}
+                                        socket={socket}
                                     />
                                 </React.Fragment>
                             );

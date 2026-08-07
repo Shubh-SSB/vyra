@@ -19,3 +19,15 @@ export const clearTokens = () => {
     localStorage.removeItem(ACCESS_TOKEN);
     localStorage.removeItem(REFRESH_TOKEN);
 }
+
+export const getMyUserId = (): string | null => {
+    try {
+        if (typeof window === "undefined") return null;
+        const token = getAccessToken();
+        if (!token) return null;
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload.sub ?? payload.id ?? payload.userId ?? null;
+    } catch {
+        return null;
+    }
+};

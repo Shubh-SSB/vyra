@@ -13,6 +13,7 @@ import { FriendsModule } from './modules/friends/friends.module';
 import { CollectionsModule } from './modules/collections/collections.module';
 import { MediaModule } from './modules/media/media.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ExploreModule } from './modules/explore/explore.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     FriendsModule,
     CollectionsModule,
     MediaModule,
-    NotificationsModule
+    NotificationsModule,
+    ExploreModule
   ]
 })
 export class AppModule { }

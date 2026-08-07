@@ -262,6 +262,68 @@ export class ChatGateway
         });
     }
 
+    @SubscribeMessage("musicSyncRequest")
+    async musicSyncRequest(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() body: { conversationId: string; trackId: string; title: string; artist: string; coverUrl?: string; streamUrl: string },
+    ) {
+        const user = client.data.user;
+        if (!user) return;
+
+        const isParticipant = await this.conversationRepository.isParticipant(
+            body.conversationId,
+            user.id,
+        );
+        if (!isParticipant) return;
+
+        client.to(body.conversationId).emit("musicSyncRequest", {
+            senderId: user.id,
+            senderName: user.username,
+            ...body
+        });
+    }
+
+    @SubscribeMessage("musicSyncResponse")
+    async musicSyncResponse(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() body: { conversationId: string; allowed: boolean; requesterId: string },
+    ) {
+        const user = client.data.user;
+        if (!user) return;
+
+        const isParticipant = await this.conversationRepository.isParticipant(
+            body.conversationId,
+            user.id,
+        );
+        if (!isParticipant) return;
+
+        this.server.to(body.conversationId).emit("musicSyncResponse", {
+            responderId: user.id,
+            responderName: user.username,
+            ...body
+        });
+    }
+
+    @SubscribeMessage("musicSyncControl")
+    async musicSyncControl(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() body: { conversationId: string; action: "PLAY" | "PAUSE" | "SEEK"; progress?: number },
+    ) {
+        const user = client.data.user;
+        if (!user) return;
+
+        const isParticipant = await this.conversationRepository.isParticipant(
+            body.conversationId,
+            user.id,
+        );
+        if (!isParticipant) return;
+
+        client.to(body.conversationId).emit("musicSyncControl", {
+            senderId: user.id,
+            ...body
+        });
+    }
+
     @SubscribeMessage("markAsRead")
     async markAsRead(
         @ConnectedSocket() client: Socket,
