@@ -22,6 +22,9 @@ export function useChatSocket({
     onMessageReaction,
     onError,
     onMessageEdited,
+    onMusicSyncRequest,
+    onMusicSyncResponse,
+    onMusicSyncControl,
 }: UseChatSocketOptions) {
     const socketRef = useRef<Socket | null>(null);
     const onNewMessageRef = useRef(onNewMessage);
@@ -31,6 +34,9 @@ export function useChatSocket({
     const onUserPresenceRef = useRef(onUserPresence);
     const onMessageReactionRef = useRef(onMessageReaction);
     const onMessageEditedRef = useRef(onMessageEdited);
+    const onMusicSyncRequestRef = useRef(onMusicSyncRequest);
+    const onMusicSyncResponseRef = useRef(onMusicSyncResponse);
+    const onMusicSyncControlRef = useRef(onMusicSyncControl);
     const onErrorRef = useRef(onError);
     const joinedConversationsRef = useRef<string[]>([]);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
@@ -41,6 +47,10 @@ export function useChatSocket({
     onMessagesReadRef.current = onMessagesRead;
     onUserPresenceRef.current = onUserPresence;
     onMessageReactionRef.current = onMessageReaction;
+    onMessageEditedRef.current = onMessageEdited;
+    onMusicSyncRequestRef.current = onMusicSyncRequest;
+    onMusicSyncResponseRef.current = onMusicSyncResponse;
+    onMusicSyncControlRef.current = onMusicSyncControl;
     onErrorRef.current = onError;
 
     const conversationIdsJson = JSON.stringify(conversationIds);
@@ -138,6 +148,18 @@ export function useChatSocket({
             onMessageEditedRef.current?.(payload)
         }
 
+        const handleMusicSyncRequest = (payload: any) => {
+            onMusicSyncRequestRef.current?.(payload);
+        };
+
+        const handleMusicSyncResponse = (payload: any) => {
+            onMusicSyncResponseRef.current?.(payload);
+        };
+
+        const handleMusicSyncControl = (payload: any) => {
+            onMusicSyncControlRef.current?.(payload);
+        };
+
         // const handleMessageDeleted = (payload: { messageId: string; deleteType: string, conversationId: string }) => {
         //     if (payload.deleteType === "FOR_EVERYONE") {
         //         queryClient.setQueryData<any>(['messages, conversationId'], (current: any) => {
@@ -161,6 +183,9 @@ export function useChatSocket({
         socket.on("userPresence", handleUserPresence);
         socket.on("messageReaction", handleMessageReaction);
         socket.on("messageEdited", handleMessageEdited);
+        socket.on("musicSyncRequest", handleMusicSyncRequest);
+        socket.on("musicSyncResponse", handleMusicSyncResponse);
+        socket.on("musicSyncControl", handleMusicSyncControl);
         socket.on('messageDeleted', ({ messageId, deleteType, conversationId }) => {
             if (deleteType === 'FOR_EVERYONE') {
                 // Update the TanStack Query cache — mark the message as deleted
@@ -215,6 +240,9 @@ export function useChatSocket({
             socket.off("userPresence", handleUserPresence);
             socket.off("messageReaction", handleMessageReaction);
             socket.off("messageEdited", handleMessageEdited);
+            socket.off("musicSyncRequest", handleMusicSyncRequest);
+            socket.off("musicSyncResponse", handleMusicSyncResponse);
+            socket.off("musicSyncControl", handleMusicSyncControl);
             socket.off('messageDeleted');
             socket.off('messagePinUpdated');
             socket.disconnect();

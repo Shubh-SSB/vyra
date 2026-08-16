@@ -39,6 +39,7 @@ import { playSound } from "@/lib/sounds";
 import { NewChatModal } from "@/components/modal/new-chat.modal";
 import { useUnreadCount } from "@/tanstack/queries/notification.query";
 import NotificationsDrawer from "@/components/notifications/notifications-drawer";
+import ListenTogetherInvite from "@/components/chat/listen-together-invite";
 
 
 type Connection = {
@@ -85,6 +86,45 @@ function ChatPageContent() {
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Listen Together State
+  const [activeInvite, setActiveInvite] = useState<{
+    senderId: string;
+    senderName: string;
+    conversationId: string;
+    trackId: string;
+    title: string;
+    artist: string;
+    coverUrl?: string;
+    streamUrl: string;
+  } | null>(null);
+
+  const [syncSession, setSyncSession] = useState<{
+    conversationId: string;
+    trackId: string;
+    title: string;
+    artist: string;
+    coverUrl?: string;
+    streamUrl: string;
+    role: "host" | "joiner";
+    hostId: string;
+  } | null>(null);
+
+  const [pendingSyncSession, setPendingSyncSession] = useState<{
+    conversationId: string;
+    trackId: string;
+    title: string;
+    artist: string;
+    coverUrl?: string;
+    streamUrl: string;
+  } | null>(null);
+
+  const [syncToast, setSyncToast] = useState<{
+    senderName: string;
+    title: string;
+    conversationId: string;
+    payload: any;
+  } | null>(null);
 
   const { data: unreadCount = 0 } = useUnreadCount();
 
@@ -139,6 +179,8 @@ function ChatPageContent() {
 
   const searchParams = useSearchParams();
   const convId = searchParams.get("convId");
+  const tab = searchParams.get("tab");
+  const newChat = searchParams.get("newChat");
 
   useEffect(() => {
     if (convId) {
@@ -147,6 +189,35 @@ function ChatPageContent() {
       setMobileView("chat");
     }
   }, [convId]);
+
+  useEffect(() => {
+    if (tab === "explore") {
+      setExploreActive(true);
+      setActiveId(null);
+      setMobileView("chat");
+    } else if (tab === "connections") {
+      setExploreActive(false);
+      setSidebarTab("connections");
+      setMobileView("list");
+    } else if (tab === "chats") {
+      setExploreActive(false);
+      setSidebarTab("chats");
+      setMobileView("list");
+    } else {
+      setExploreActive(false);
+      setSidebarTab("chats");
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (newChat === "true") {
+      setNewChatOpen(true);
+      // Clean query parameter from address bar
+      const url = new URL(window.location.href);
+      url.searchParams.delete("newChat");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [newChat]);
 
   useEffect(() => {
     if (activeId) {
@@ -323,7 +394,100 @@ function ChatPageContent() {
       });
     },
     onError: setSocketError,
+    onMusicSyncRequest: (payload) => {
+      if (payload.senderId === myUserId) return;
+
+      const preference = meResponse?.data?.listenTogetherPreference || "ALWAYS";
+      if (preference === "NEVER") return;
+
+      if (payload.conversationId === activeId) {
+        setActiveInvite(payload);
+        playSound("received");
+      } else {
+        if (preference === "CHAT_ONLY") return;
+
+        setSyncToast({
+          senderName: payload.senderName || "Someone",
+          title: payload.title || "Unknown Title",
+          conversationId: payload.conversationId,
+          payload: payload
+        });
+        playSound("received");
+
+        // Auto dismiss toast after 8 seconds
+        setTimeout(() => {
+          setSyncToast((current) => {
+            if (current && current.conversationId === payload.conversationId) {
+              return null;
+            }
+            return current;
+          });
+        }, 8000);
+      }
+    },
+    onMusicSyncResponse: (payload) => {
+      if (payload.requesterId === myUserId) {
+        if (payload.allowed) {
+          // Recipient accepted! Start host session
+          if (pendingSyncSession && pendingSyncSession.conversationId === payload.conversationId) {
+            const hostSession = {
+              ...pendingSyncSession,
+              role: "host" as const,
+              hostId: myUserId || "",
+            };
+            setSyncSession(hostSession);
+            setPendingSyncSession(null);
+            // Dispatch event to clear waiting state on message button
+            window.dispatchEvent(new CustomEvent("vyra:listenTogether:host", {
+              detail: hostSession
+            }));
+          }
+        } else {
+          // Recipient declined! Clear pending state and notify button
+          setPendingSyncSession(null);
+          window.dispatchEvent(new CustomEvent("vyra:listenTogether:declined", {
+            detail: { conversationId: payload.conversationId }
+          }));
+        }
+      }
+    },
+    onMusicSyncControl: (payload) => {
+      window.dispatchEvent(new CustomEvent("vyra:listenTogether:control", {
+        detail: payload
+      }));
+    },
   });
+
+  useEffect(() => {
+    const handlePendingSession = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setPendingSyncSession({
+        conversationId: detail.conversationId,
+        trackId: detail.trackId || `${detail.title}-${detail.artist}`,
+        title: detail.title,
+        artist: detail.artist,
+        coverUrl: detail.coverUrl,
+        streamUrl: detail.streamUrl,
+      });
+    };
+
+    const handleTimeoutSession = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setPendingSyncSession((prev) => {
+        if (prev && prev.conversationId === detail.conversationId) {
+          return null;
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener("vyra:listenTogether:pending", handlePendingSession);
+    window.addEventListener("vyra:listenTogether:timeout", handleTimeoutSession);
+    return () => {
+      window.removeEventListener("vyra:listenTogether:pending", handlePendingSession);
+      window.removeEventListener("vyra:listenTogether:timeout", handleTimeoutSession);
+    };
+  }, []);
 
   // Mark active conversation as read when activeId changes or joins
   useEffect(() => {
@@ -539,7 +703,7 @@ function ChatPageContent() {
         />
 
         {sidebarTab !== "explore" && (
-          <div className="px-5 pt-5">
+          <div className="px-5 pt-5 md:hidden">
             <div className="flex items-center gap-1 rounded-2xl bg-surface p-2">
               <button
                 onClick={() => setSidebarTab("chats")}
@@ -770,6 +934,8 @@ function ChatPageContent() {
           }}
           isFriend={isFriend}
           myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
+          syncSession={syncSession}
+          setSyncSession={setSyncSession}
         />
       )}
       <AnimatePresence>
@@ -826,6 +992,76 @@ function ChatPageContent() {
           );
         }}
       />
+
+      <ListenTogetherInvite
+        open={!!activeInvite}
+        senderName={otherUser?.displayName || activeInvite?.senderName || "Someone"}
+        track={activeInvite ? {
+          title: activeInvite.title,
+          artist: activeInvite.artist,
+          coverUrl: activeInvite.coverUrl,
+        } : null}
+        onAccept={() => {
+          if (!activeInvite || !socket) return;
+          socket.emit("musicSyncResponse", {
+            conversationId: activeInvite.conversationId,
+            allowed: true,
+            requesterId: activeInvite.senderId,
+          });
+          setSyncSession({
+            conversationId: activeInvite.conversationId,
+            trackId: activeInvite.trackId,
+            title: activeInvite.title,
+            artist: activeInvite.artist,
+            coverUrl: activeInvite.coverUrl,
+            streamUrl: activeInvite.streamUrl,
+            role: "joiner",
+            hostId: activeInvite.senderId,
+          });
+          setActiveInvite(null);
+        }}
+        onDecline={() => {
+          if (activeInvite && socket) {
+            socket.emit("musicSyncResponse", {
+              conversationId: activeInvite.conversationId,
+              allowed: false,
+              requesterId: activeInvite.senderId,
+            });
+          }
+          setActiveInvite(null);
+        }}
+      />
+
+      <AnimatePresence>
+        {syncToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            onClick={() => {
+              setActiveId(syncToast.conversationId);
+              setMobileView("chat");
+              const fullInvite = syncToast.payload;
+              if (fullInvite) {
+                setActiveInvite(fullInvite);
+              }
+              setSyncToast(null);
+            }}
+            className="fixed bottom-6 right-6 z-[120] flex items-center gap-3.5 rounded-2xl border border-emerald-500/20 bg-[#111114]/95 p-3.5 shadow-2xl backdrop-blur-xl cursor-pointer hover:border-emerald-500/30 transition-all select-none max-w-[320px]"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+              <Users className="h-4.5 w-4.5" />
+            </div>
+            <div className="flex flex-col leading-tight min-w-0">
+              <p className="text-xs font-bold text-white">Listen Together Invite</p>
+              <p className="text-[11px] text-white/60 truncate mt-0.5">
+                <span className="text-white/80 font-semibold">{syncToast.senderName}</span> invited you to listen to <span className="text-emerald-400 font-semibold">"{syncToast.title}"</span>.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

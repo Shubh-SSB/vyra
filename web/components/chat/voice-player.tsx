@@ -119,10 +119,10 @@ export default function VoicePlayer({ src, duration, isOwn = false }: VoicePlaye
 
                 {/* Timestamps */}
                 <div className="flex justify-between items-center text-[10px] opacity-75 font-mono select-none">
-                    <span className={isOwn ? "text-background" : "text-foreground"}>
+                    <span className={isOwn ? "text-foreground/75" : "text-foreground"}>
                         {formatTime(currentTime)}
                     </span>
-                    <span className={isOwn ? "text-background" : "text-foreground"}>
+                    <span className={isOwn ? "text-foreground/75" : "text-foreground"}>
                         {formatTime(duration)}
                     </span>
                 </div>

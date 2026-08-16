@@ -4,20 +4,33 @@ export default function RailIcon({
     label,
     icon,
     active,
+    hasDot,
+    onClick,
+    className,
 }: {
     label: string;
-    icon?: React.ReactNode;
+    icon: React.ReactNode;
     active?: boolean;
+    hasDot?: boolean;
+    onClick?: () => void;
+    className?: string;
 }) {
     return (
         <button
             title={label}
+            onClick={onClick}
             className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground",
-                active && "bg-surface text-foreground",
+                "relative flex h-12 w-12 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 hover:bg-white/8 hover:text-foreground active:scale-90 cursor-pointer outline-none",
+                active && "bg-surface-elevated text-foreground shadow-sm hover:bg-surface-elevated hover:text-foreground",
+                className
             )}
         >
-            {icon ?? <div className="h-1.5 w-1.5 rounded-full bg-current" />}
+            <div className="transition-transform duration-200">
+                {icon}
+            </div>
+            {hasDot && (
+                <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-red-500 border border-background" />
+            )}
         </button>
     );
 }

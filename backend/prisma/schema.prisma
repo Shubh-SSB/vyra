@@ -25,6 +25,12 @@ enum PresenceVisibility {
   NOBODY
 }
 
+enum ListenTogetherPreference {
+  ALWAYS
+  CHAT_ONLY
+  NEVER
+}
+
 enum FriendRequestStatus {
   PENDING
   ACCEPTED
@@ -91,6 +97,7 @@ model User {
   profileVisibility  ProfileVisibility  @default(PUBLIC)
   messagePrivacy     MessagePrivacy     @default(EVERYONE)
   presenceVisibility PresenceVisibility @default(FRIENDS_ONLY)
+  listenTogetherPreference ListenTogetherPreference @default(ALWAYS)
 
   showLastSeen     Boolean   @default(true)
   showReadReceipts Boolean   @default(true)

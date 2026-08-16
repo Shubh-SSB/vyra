@@ -1,4 +1,4 @@
-import { ProfileVisibility, MessagePrivacy, PresenceVisibility } from "@prisma/client";
+import { ProfileVisibility, MessagePrivacy, PresenceVisibility, ListenTogetherPreference } from "@prisma/client";
 
 export class UserResponseDto {
     id!: string;
@@ -15,4 +15,5 @@ export class UserResponseDto {
     presenceVisibility?: PresenceVisibility;
     showLastSeen?: boolean;
     showReadReceipts?: boolean;
+    listenTogetherPreference?: ListenTogetherPreference;
 }

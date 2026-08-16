@@ -292,6 +292,14 @@ function SettingsPageContent() {
                     href="/settings/presence"
                   />
 
+                  {/* Row 5.5: Music sync privacy */}
+                  <SettingsRow
+                    icon={<Volume2 />}
+                    title="Music sync privacy"
+                    description="Manage who can invite you to Listen Together"
+                    href="/settings/music-privacy"
+                  />
+
                   {/* Row 6: Hidden Messages */}
                   <SettingsRow
                     icon={<EyeOff />}

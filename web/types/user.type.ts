@@ -14,6 +14,7 @@ export type UserProfile = {
     bio?: string;
     profileVisibility?: string;
     messagePrivacy?: string;
+    listenTogetherPreference?: string;
 }
 
 

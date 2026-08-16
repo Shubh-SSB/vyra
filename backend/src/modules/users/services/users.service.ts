@@ -179,6 +179,7 @@ export class UsersService {
             presenceVisibility: dto.presenceVisibility,
             showLastSeen: dto.showLastSeen,
             showReadReceipts: dto.showReadReceipts,
+            listenTogetherPreference: dto.listenTogetherPreference,
         });
         }
 }

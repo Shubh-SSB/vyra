@@ -121,7 +121,8 @@ export class UserRepository {
                 bio: true,
                 profileVisibility: true,
                 messagePrivacy: true,
+                listenTogetherPreference: true,
             },
         });
-        }
+    }
 }

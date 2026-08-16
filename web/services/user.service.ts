@@ -25,6 +25,7 @@ export const UserService = {
         presenceVisibility?: string;
         showLastSeen?: boolean;
         showReadReceipts?: boolean;
+        listenTogetherPreference?: string;
     }) {
         return $crud.patch<UserProfile>("users/privacy", data);
     },

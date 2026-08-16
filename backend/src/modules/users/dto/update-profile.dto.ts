@@ -11,6 +11,7 @@ import {
   ProfileVisibility,
   MessagePrivacy,
   PresenceVisibility,
+  ListenTogetherPreference,
 } from "@prisma/client";
 
 
@@ -59,4 +60,8 @@ export class UpdatePrivacyDto {
 
   @IsBoolean()
   showReadReceipts!: boolean;
+
+  @IsOptional()
+  @IsEnum(ListenTogetherPreference)
+  listenTogetherPreference?: ListenTogetherPreference;
 }

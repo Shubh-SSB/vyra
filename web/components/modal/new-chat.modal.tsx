@@ -93,12 +93,12 @@ export function NewChatModal({ open, onClose, onStartChat, onGoToGlobalSearch }:
                 <motion.div key="new-chat-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
                     <motion.div key="new-chat-card" initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.97 }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full sm:w-[420px] max-h-[82vh] sm:max-h-[520px] rounded-t-3xl sm:rounded-2xl border border-white/10 bg-[#141416]/95 shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden">
-                        <div className="h-[2px] w-full bg-gradient-to-r from-emerald-500/60 via-emerald-400/30 to-transparent shrink-0" />
+
                         <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0"><div className="h-1 w-10 rounded-full bg-white/20" /></div>
                         
                         <div className="flex items-center justify-between px-5 py-4 shrink-0">
                             <div className="flex items-center gap-2.5">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400"><MessageSquare className="h-4 w-4" /></div>
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-foreground"><MessageSquare className="h-4 w-4" /></div>
                                 <div>
                                     <h2 className="text-[14px] font-semibold text-foreground leading-tight">New Chat</h2>
                                     <p className="text-[11px] text-muted-foreground">Select a friend to start a conversation</p>
@@ -138,7 +138,7 @@ export function NewChatModal({ open, onClose, onStartChat, onGoToGlobalSearch }:
                                         <p className="text-[11px] text-muted-foreground mt-0.5">Connect with people to start messaging them.</p>
                                     </div>
                                     {onGoToGlobalSearch && (
-                                        <button onClick={() => { onGoToGlobalSearch(); onClose(); }} className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition cursor-pointer bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
+                                        <button onClick={() => { onGoToGlobalSearch(); onClose(); }} className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-foreground hover:bg-white/[0.08] transition cursor-pointer bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 rounded-lg">
                                             <span>Find Connections</span>
                                             <ArrowRight className="h-3 w-3" />
                                         </button>

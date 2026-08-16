@@ -164,7 +164,7 @@ export default function ShareObjectModal({
                                             className={cn(
                                                 "h-8 px-4 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer disabled:scale-100",
                                                 isSent
-                                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                                    ? "bg-white/10 text-white border border-white/10 opacity-70"
                                                     : "bg-foreground text-background hover:opacity-90 active:scale-95"
                                             )}
                                         >

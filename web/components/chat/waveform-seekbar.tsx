@@ -111,7 +111,7 @@ export default function WaveformSeekbar({
                 ctx.fillStyle = grad;
             } else {
                 ctx.fillStyle = own
-                    ? "rgba(0, 0, 0, 0.15)"
+                    ? "rgba(255, 255, 255, 0.18)"
                     : "rgba(255, 255, 255, 0.25)";
             }
 
@@ -127,7 +127,7 @@ export default function WaveformSeekbar({
         // Playhead
         if (prog > 0 && prog < 100) {
             const headX = (prog / 100) * W;
-            ctx.strokeStyle = own ? "rgba(0, 0, 0, 0.25)" : "rgba(255, 255, 255, 0.4)";
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
             ctx.lineWidth = 1.5;
             ctx.setLineDash([2, 2]);
             ctx.beginPath();

@@ -7,10 +7,12 @@ import { Message } from "@/types/message";
 import {
     Check, CheckCheck, Plus, SmilePlus, CornerUpLeft,
     ChevronDown, Pencil, Trash2, EyeOff, Trash, AlertTriangle, Bookmark, Forward, MousePointerClick,
-    Paperclip, Pin, PinOff
+    Paperclip, Pin, PinOff,
+    HeartHandshake
 } from "lucide-react";
 import { SaveToCollectionModal } from "./save-to-collection-modal";
 import VoicePlayer from "./voice-player";
+import { MusicPlayer } from "@/components/ui/music-player";
 import MediaLightbox from "./media-lightbox";
 import ConfirmModal, { ConfirmAction } from "./confirm-modal";
 import PinDurationModal from "./pin-duration-modal";
@@ -179,34 +181,62 @@ function MenuDivider() {
 // ─── Rich Card Bubble ──────────────────────────────────────────────────────────
 
 function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObject: any; isOwn: boolean; socket?: any; conversationId?: string }) {
-    const [isPlaying, setIsPlaying] = useState(false);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isLoadingStream, setIsLoadingStream] = useState(false);
+    const [isWaiting, setIsWaiting] = useState(false);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const togglePlay = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!richObject.metadata?.preview) return;
-
-        if (isPlaying) {
-            audioRef.current?.pause();
-            setIsPlaying(false);
-        } else {
-            if (audioRef.current) {
-                audioRef.current.pause();
+    useEffect(() => {
+        const handleStartSession = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail.conversationId === conversationId) {
+                setIsWaiting(false);
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                    timeoutRef.current = null;
+                }
             }
-            audioRef.current = new Audio(richObject.metadata.preview);
-            audioRef.current.play().catch(err => console.warn("Audio preview autoplay blocked:", err));
-            setIsPlaying(true);
-            audioRef.current.onended = () => {
-                setIsPlaying(false);
-            };
-        }
-    };
+        };
+
+        const handleDeclinedSession = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail.conversationId === conversationId) {
+                setIsWaiting(false);
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                    timeoutRef.current = null;
+                }
+            }
+        };
+
+        const handleTimeoutSession = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail.conversationId === conversationId) {
+                setIsWaiting(false);
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                    timeoutRef.current = null;
+                }
+            }
+        };
+
+        window.addEventListener("vyra:listenTogether:host", handleStartSession);
+        window.addEventListener("vyra:listenTogether:declined", handleDeclinedSession);
+        window.addEventListener("vyra:listenTogether:timeout", handleTimeoutSession);
+
+        return () => {
+            window.removeEventListener("vyra:listenTogether:host", handleStartSession);
+            window.removeEventListener("vyra:listenTogether:declined", handleDeclinedSession);
+            window.removeEventListener("vyra:listenTogether:timeout", handleTimeoutSession);
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, [conversationId]);
 
     const handleListenTogether = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!socket || !conversationId) return;
-        if (isLoadingStream) return;
+        if (isLoadingStream || isWaiting) return;
 
         setIsLoadingStream(true);
         try {
@@ -227,11 +257,12 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
                 streamUrl: streamUrl || richObject.metadata?.preview || "",
             });
 
-            // Dispatch custom event so the chat page picks it up and opens our own player
+            // Dispatch pending event so page.tsx saves the session info and waits for acceptance
             if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent("vyra:listenTogether:host", {
+                window.dispatchEvent(new CustomEvent("vyra:listenTogether:pending", {
                     detail: {
                         conversationId,
+                        trackId: richObject.id || `${richObject.title}-${richObject.subtitle}`,
                         title: richObject.title || "Unknown",
                         artist: richObject.subtitle || "Unknown",
                         coverUrl: richObject.image || "",
@@ -239,6 +270,15 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
                     },
                 }));
             }
+            setIsWaiting(true);
+
+            // Start a 30-second timeout to auto-cancel if no response
+            timeoutRef.current = setTimeout(() => {
+                setIsWaiting(false);
+                window.dispatchEvent(new CustomEvent("vyra:listenTogether:timeout", {
+                    detail: { conversationId }
+                }));
+            }, 30000);
         } catch (err) {
             console.warn("[RichCardBubble] Failed to start listen together:", err);
         } finally {
@@ -246,13 +286,54 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
         }
     };
 
-    useEffect(() => {
-        return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-            }
-        };
-    }, []);
+    if (richObject.type === "MUSIC" && richObject.metadata?.preview) {
+        return (
+            <div
+                className="w-full max-w-[280px] sm:max-w-[320px] flex flex-col gap-3 py-1.5"
+                onClick={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+            >
+                <div className="relative w-max max-w-full">
+                    <MusicPlayer
+                        tracks={[
+                            {
+                                title: richObject.title || "Unknown Title",
+                                artist: richObject.subtitle || "Unknown Artist",
+                                src: richObject.metadata.preview,
+                                artwork: richObject.image || "",
+                            }
+                        ]}
+                        showProgress={true}
+                        className="max-w-full"
+                    />
+
+                    {socket && conversationId && (
+                        <button
+                            type="button"
+                            onClick={handleListenTogether}
+                            disabled={isLoadingStream || isWaiting}
+                            title={isWaiting ? "Waiting for recipient..." : "Listen Together"}
+                            className={cn(
+                                "absolute -right-3 -bottom-3 z-20 flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md transition-all shadow-md cursor-pointer",
+                                isWaiting
+                                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400 animate-pulse cursor-wait"
+                                    : "bg-white/15 border-white/20 text-gray-300 hover:text-gray-100 hover:scale-105 active:scale-95"
+                            )}
+                        >
+                            {isLoadingStream || isWaiting ? (
+                                <div className={cn(
+                                    "h-4 w-4 animate-spin rounded-full border-[1.5px]",
+                                    isWaiting ? "border-emerald-400/30 border-t-emerald-400" : "border-gray-300/30 border-t-gray-300"
+                                )} />
+                            ) : (
+                                <HeartHandshake className="h-5 w-5" />
+                            )}
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     const typeConfigs: Record<string, { label: string; icon: string; badgeClass: string }> = {
         MUSIC: { label: "Music", icon: "🎵", badgeClass: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
@@ -272,15 +353,15 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
             {/* Backdrop Blur Poster Image */}
             {richObject.image && (
                 <div className="relative h-44 w-full bg-black/40 overflow-hidden border-b border-white/[0.06] flex items-center justify-center">
-                    <img 
-                        src={richObject.image} 
-                        alt={richObject.title} 
-                        className="absolute inset-0 w-full h-full object-cover blur-md opacity-25 scale-110" 
+                    <img
+                        src={richObject.image}
+                        alt={richObject.title}
+                        className="absolute inset-0 w-full h-full object-cover blur-md opacity-25 scale-110"
                     />
-                    <img 
-                        src={richObject.image} 
-                        alt={richObject.title} 
-                        className="relative z-10 w-full h-full object-contain mx-auto" 
+                    <img
+                        src={richObject.image}
+                        alt={richObject.title}
+                        className="relative z-10 w-full h-full object-contain mx-auto"
                     />
                 </div>
             )}
@@ -288,10 +369,12 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
             {/* Content Details */}
             <div className="p-4 flex flex-col gap-2.5">
                 <div className="flex items-center justify-between">
-                    <span className={cn("px-2.5 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider", config.badgeClass)}>
-                        {config.icon} {config.label}
-                    </span>
-                    
+                    {richObject.type !== "MUSIC" && (
+                        <span className={cn("px-2.5 py-0.5 text-[9px] font-bold rounded-full border uppercase tracking-wider", config.badgeClass)}>
+                            {config.icon} {config.label}
+                        </span>
+                    )}
+
                     {richObject.metadata?.rating !== undefined && (
                         <span className="text-[10px] font-bold text-yellow-400">
                             ★ {richObject.metadata.rating.toFixed(1)}
@@ -336,66 +419,6 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
                 )}
 
                 <div className="flex flex-col gap-2 mt-2 border-t border-white/[0.04] pt-3">
-                    {richObject.type === "MUSIC" && richObject.metadata?.preview && (
-                        <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={togglePlay}
-                                className={cn(
-                                    "flex-1 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer",
-                                    isPlaying 
-                                        ? "bg-red-500/10 text-red-400 border border-red-500/20" 
-                                        : "bg-white/10 text-foreground hover:bg-white/15 border border-white/5"
-                                )}
-                            >
-                                {isPlaying ? (
-                                    <>
-                                        <div className="flex items-end gap-0.5 h-2.5">
-                                            <div className="w-0.5 bg-red-400 animate-[bounce_0.8s_infinite_100ms] h-full" />
-                                            <div className="w-0.5 bg-red-400 animate-[bounce_0.8s_infinite_300ms] h-1/2" />
-                                            <div className="w-0.5 bg-red-400 animate-[bounce_0.8s_infinite_200ms] h-3/4" />
-                                        </div>
-                                        Pause
-                                    </>
-                                ) : (
-                                    <>
-                                        <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
-                                            <path d="M8 5v14l11-7z" />
-                                        </svg>
-                                        Preview
-                                    </>
-                                )}
-                            </button>
-
-                            {/* Listen Together button — only shown inside a chat with an active socket */}
-                            {socket && conversationId && (
-                                <button
-                                    type="button"
-                                    onClick={handleListenTogether}
-                                    disabled={isLoadingStream}
-                                    className={cn(
-                                        "flex-1 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border",
-                                        isLoadingStream
-                                            ? "bg-emerald-500/5 text-emerald-400/50 border-emerald-500/10 cursor-wait"
-                                            : "bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 text-emerald-400 border-emerald-500/20 hover:from-emerald-500/20 hover:to-cyan-500/20"
-                                    )}
-                                >
-                                    {isLoadingStream ? (
-                                        <div className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-emerald-400/30 border-t-emerald-400" />
-                                    ) : (
-                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                                            <circle cx="9" cy="7" r="4" />
-                                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                                        </svg>
-                                    )}
-                                    Listen Together
-                                </button>
-                            )}
-                        </div>
-                    )}
-
                     {richObject.actions?.open && (
                         <a
                             href={richObject.actions.open}
@@ -940,7 +963,7 @@ function ChatMessage({
                         className={cn(
                             "break-words px-4 py-2.5 text-[14px] leading-[1.55] md:cursor-default cursor-pointer select-none flex flex-col gap-1.5 touch-pan-y",
                             isOwn
-                                ? "rounded-2xl rounded-tr-sm bg-foreground text-background animate-message-fade-in"
+                                ? "rounded-2xl rounded-tr-sm bg-surface-elevated text-foreground animate-message-fade-in"
                                 : "rounded-2xl rounded-tl-sm bg-main/50 pt-4 px-6 backdrop-blur-xs text-foreground"
                         )}
                     >
@@ -976,7 +999,7 @@ function ChatMessage({
                                         className={cn(
                                             "flex flex-col gap-0.5 border-l-2 text-[12px] pl-2.5 py-0.5 rounded-r cursor-pointer transition select-none max-w-[280px] md:max-w-[400px] overflow-hidden",
                                             isOwn
-                                                ? "border-background/30 bg-black/20 text-background/80 hover:bg-background/10"
+                                                ? "border-white/10 bg-black/20 text-foreground/80 hover:bg-black/35"
                                                 : "border-primary/50 bg-white/5 text-muted-foreground hover:bg-white/10"
                                         )}
                                     >
@@ -992,7 +1015,7 @@ function ChatMessage({
                                 {message.isForwarded && (
                                     <span className={cn(
                                         "flex items-center gap-1 text-[10px] font-medium opacity-60 -mb-0.5",
-                                        isOwn ? "text-background/70" : "text-muted-foreground"
+                                        "text-muted-foreground"
                                     )}>
                                         <Forward className="h-2.5 w-2.5 shrink-0" />
                                         Forwarded
@@ -1055,7 +1078,7 @@ function ChatMessage({
                                                                         </svg>
                                                                     </div>
                                                                 </div>
-                                                             </div>
+                                                            </div>
                                                         );
                                                     }
                                                     return null;
@@ -1083,7 +1106,7 @@ function ChatMessage({
                                                 className={cn(
                                                     "flex items-center gap-2.5 p-2 rounded-xl border text-xs transition duration-150 active:scale-98 select-text",
                                                     isOwn
-                                                        ? "bg-black/10 border-black/10 text-background hover:bg-black/15"
+                                                        ? "bg-black/20 border-white/5 text-foreground hover:bg-black/30"
                                                         : "bg-surface-elevated border-white/[0.04] text-foreground hover:bg-white/5"
                                                 )}
                                                 onClick={(e) => e.stopPropagation()}
@@ -1106,13 +1129,13 @@ function ChatMessage({
                                 )}
                                 <div className={cn(
                                     "mt-1 flex items-center justify-end gap-1.5 text-[10px] tracking-wide",
-                                    isOwn ? "text-background/50" : "text-muted-foreground"
+                                    "text-muted-foreground"
                                 )}>
                                     {message.isPinned && (
                                         <>
                                             <span className={cn(
                                                 "flex items-center gap-0.5 font-bold uppercase tracking-wider text-[8px]",
-                                                isOwn ? "text-background/70" : "text-emerald-400"
+                                                "text-emerald-400"
                                             )}>
                                                 <Pin className="h-2.5 w-2.5 fill-current shrink-0 rotate-45" />
                                                 <span>Pinned</span>
@@ -1124,7 +1147,7 @@ function ChatMessage({
                                         <>
                                             <span className={cn(
                                                 "flex items-center gap-0.5 font-bold uppercase tracking-wider text-[8px]",
-                                                isOwn ? "text-background/70" : "text-main"
+                                                "text-main"
                                             )}>
                                                 <Bookmark className="h-2.5 w-2.5 fill-current shrink-0" />
                                                 <span>Saved</span>
@@ -1141,7 +1164,7 @@ function ChatMessage({
                                             {isRead ? (
                                                 <CheckCheck className="h-3 w-3 text-cyan-400 animate-pulse" style={{ animationDuration: "2s" }} />
                                             ) : (
-                                                <Check className="h-3 w-3 text-background/30" />
+                                                <Check className="h-3 w-3 text-white/20" />
                                             )}
                                         </span>
                                     )}
@@ -1222,7 +1245,7 @@ function ChatMessage({
                 open={showPinModal}
                 onConfirm={(durationMs) => {
                     if (onPin) {
-                        const pinnedDuration = durationMs 
+                        const pinnedDuration = durationMs
                             ? new Date(Date.now() + durationMs).toISOString()
                             : null;
                         onPin(message.id, pinnedDuration);

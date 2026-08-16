@@ -17,6 +17,7 @@ export class UserMapper {
       presenceVisibility: user.presenceVisibility,
       showLastSeen: user.showLastSeen,
       showReadReceipts: user.showReadReceipts,
+      listenTogetherPreference: user.listenTogetherPreference,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

@@ -42,4 +42,5 @@ export interface MeResponse {
   presenceVisibility?: string;
   showLastSeen?: boolean;
   showReadReceipts?: boolean;
+  listenTogetherPreference?: string;
 }

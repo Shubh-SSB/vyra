@@ -58,6 +58,7 @@ export const useUpdatePrivacy = () => {
             presenceVisibility?: string;
             showLastSeen?: boolean;
             showReadReceipts?: boolean;
+            listenTogetherPreference?: string;
         }) => {
             const res = await UserService.updatePrivacy(data);
             return res.data;

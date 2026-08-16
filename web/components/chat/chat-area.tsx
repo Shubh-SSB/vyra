@@ -14,6 +14,7 @@ import ChatThread from "./chat-thread";
 import ChatComposer from "./chat-composer";
 import { ForwardMessageModal } from "./forward-message-modal";
 import MailAnimation from "./mail-animation";
+import SharedMusicPlayer from "./shared-music-player";
 
 function getMyUserId(): string | null {
     try {
@@ -49,6 +50,8 @@ type Props = {
     isFriend?: boolean;
     myShowLastSeen?: boolean;
     socket?: any;
+    syncSession?: any;
+    setSyncSession?: (session: any) => void;
 };
 
 export default function ChatArea({
@@ -67,6 +70,8 @@ export default function ChatArea({
     isFriend = true,
     myShowLastSeen,
     socket,
+    syncSession,
+    setSyncSession,
 }: Props) {
     const queryClient = useQueryClient();
     const myUserId = getMyUserId();
@@ -483,6 +488,14 @@ export default function ChatArea({
                     </div>
                 )}
 
+                {syncSession && (
+                    <SharedMusicPlayer
+                        session={syncSession}
+                        onClose={() => setSyncSession?.(null)}
+                        socket={socket}
+                    />
+                )}
+
                 <ChatThread
                     messages={historyMessages ?? []}
                     myUserId={myUserId}
@@ -510,6 +523,7 @@ export default function ChatArea({
                     onBulkForward={handleBulkForward}
                     onPin={handlePin}
                     onUnpin={handleUnpin}
+                    socket={socket}
                 />
 
                 {(connectionStatus !== "joined" || socketError) && (
