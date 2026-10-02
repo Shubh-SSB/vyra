@@ -88,13 +88,13 @@ const DateDivider = memo(function DateDivider({ date, className }: DateDividerPr
                 className
             )}
         >
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-border/40" />
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-gray-200" />
 
-            <div className="flex items-center gap-1.5 rounded-full border border-border/60 bg-surface-elevated/80 px-3.5 py-1 text-[11px] font-medium tracking-wide text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-border hover:bg-surface-elevated hover:text-foreground">
+            <div className="flex items-center gap-1.5 rounded-full border border-gray-200/55 bg-surface-elevated/80 px-3.5 py-1 text-sm font-medium tracking-wide text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-border hover:bg-surface-elevated hover:text-foreground">
                 <span>{label}</span>
             </div>
 
-            <div className="h-px flex-1 bg-gradient-to-l from-transparent via-border to-border/40" />
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent via-border to-gray-200" />
         </motion.div>
     );
 });

@@ -8,7 +8,8 @@ import {
     Check, CheckCheck, Plus, SmilePlus, CornerUpLeft,
     ChevronDown, Pencil, Trash2, EyeOff, Trash, AlertTriangle, Bookmark, Forward, MousePointerClick,
     Paperclip, Pin, PinOff,
-    HeartHandshake
+    HeartHandshake,
+    ChevronUp
 } from "lucide-react";
 import { SaveToCollectionModal } from "./save-to-collection-modal";
 import VoicePlayer from "./voice-player";
@@ -239,6 +240,16 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
         if (isLoadingStream || isWaiting) return;
 
         setIsLoadingStream(true);
+        // Reset and pause any active audio playback to prepare for sync
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("vyra:media:pauseAll"));
+            document.querySelectorAll("audio").forEach((a) => {
+                try {
+                    a.pause();
+                    a.currentTime = 0;
+                } catch { }
+            });
+        }
         try {
             // Dynamically import to avoid circular deps
             const { ExploreService } = await import("@/services/explore.service");
@@ -286,7 +297,8 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
         }
     };
 
-    if (richObject.type === "MUSIC" && richObject.metadata?.preview) {
+    const musicSrc = richObject.metadata?.preview || richObject.metadata?.previewUrl || richObject.metadata?.streamUrl || richObject.metadata?.url || richObject.streamUrl;
+    if (richObject.type === "MUSIC" && musicSrc) {
         return (
             <div
                 className="w-full max-w-[280px] sm:max-w-[320px] flex flex-col gap-3 py-1.5"
@@ -299,7 +311,7 @@ function RichCardBubble({ richObject, isOwn, socket, conversationId }: { richObj
                             {
                                 title: richObject.title || "Unknown Title",
                                 artist: richObject.subtitle || "Unknown Artist",
-                                src: richObject.metadata.preview,
+                                src: musicSrc,
                                 artwork: richObject.image || "",
                             }
                         ]}
@@ -443,6 +455,7 @@ type Props = {
     isOwn: boolean;
     grouped: boolean;
     isRead?: boolean;
+    isDelivered?: boolean;
     myUserId: string | null;
     sendReaction: (messageId: string, reaction: string) => void;
     onReply: (message: Message) => void;
@@ -463,7 +476,7 @@ type Props = {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function ChatMessage({
-    message, isOwn, grouped, isRead, myUserId,
+    message, isOwn, grouped, isRead, isDelivered, myUserId,
     sendReaction, onReply, onEdit,
     onDeleteForMe, onDeleteForEveryone, onHide, onForward,
     selectionMode, isSelected, onToggleSelect, onEnterSelectMode,
@@ -794,13 +807,13 @@ function ChatMessage({
                                     ref={menuBtnRef}
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setShowMenu((v) => !v); }}
-                                    className="absolute top-0 left-0 z-20 hidden md:flex h-7 w-7 items-center justify-center
-                                            rounded-tl-sm rounded-br-2xl 
+                                    className="absolute bottom-0 left-0 z-20 hidden md:flex h-7 w-7 items-center justify-center pr-1
+                                            rounded-bl-sm rounded-tr-2xl 
                                             text-foreground/60 hover:bg-white/10 hover:text-foreground
                                             transition duration-150 ease-out
                                             md:opacity-0 md:group-hover:opacity-100 cursor-pointer"
                                 >
-                                    <ChevronDown className="h-5 w-5" strokeWidth={2.5} />
+                                    <ChevronUp className="h-5 w-5" strokeWidth={2.5} />
                                 </button>
                             )}
 
@@ -964,21 +977,21 @@ function ChatMessage({
                             "break-words px-4 py-2.5 text-[14px] leading-[1.55] md:cursor-default cursor-pointer select-none flex flex-col gap-1.5 touch-pan-y",
                             isOwn
                                 ? "rounded-2xl rounded-tr-sm bg-surface-elevated text-foreground animate-message-fade-in"
-                                : "rounded-2xl rounded-tl-sm bg-main/50 pt-4 px-6 backdrop-blur-xs text-foreground"
+                                : "rounded-2xl rounded-bl-sm bg-main/55 pt-3 backdrop-blur-xs text-foreground"
                         )}
                     >
                         {isDeleted ? (
                             <div className="flex flex-col gap-1">
                                 <span className={cn(
                                     "italic opacity-60 flex items-center gap-1.5 select-none",
-                                    isOwn ? "text-background" : "text-muted-foreground"
+                                    isOwn ? "text-main" : "text-muted-foreground"
                                 )}>
                                     <Trash className="h-3.5 w-3.5 shrink-0 opacity-80" />
                                     This message was deleted
                                 </span>
                                 <div className={cn(
-                                    "mt-1 flex items-center justify-end text-[10px] tracking-wide",
-                                    isOwn ? "text-background/50" : "text-muted-foreground"
+                                    "mt-1 flex items-center justify-end text-xs tracking-wide",
+                                    isOwn ? "text-main" : "text-muted-foreground"
                                 )}>
                                     <span>{formatTime(message.createdAt)}</span>
                                 </div>
@@ -1163,6 +1176,8 @@ function ChatMessage({
                                         <span className="inline-flex">
                                             {isRead ? (
                                                 <CheckCheck className="h-3 w-3 text-cyan-400 animate-pulse" style={{ animationDuration: "2s" }} />
+                                            ) : isDelivered ? (
+                                                <CheckCheck className="h-3 w-3 text-white/40" />
                                             ) : (
                                                 <Check className="h-3 w-3 text-white/20" />
                                             )}
@@ -1266,6 +1281,7 @@ export default memo(ChatMessage, (prevProps, nextProps) => {
         prevProps.isOwn === nextProps.isOwn &&
         prevProps.grouped === nextProps.grouped &&
         prevProps.isRead === nextProps.isRead &&
+        prevProps.isDelivered === nextProps.isDelivered &&
         prevProps.myUserId === nextProps.myUserId &&
         prevProps.selectionMode === nextProps.selectionMode &&
         prevProps.isSelected === nextProps.isSelected

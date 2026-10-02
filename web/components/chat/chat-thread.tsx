@@ -16,6 +16,7 @@ type Props = {
     isLoading?: boolean;
     isTyping?: boolean;
     otherParticipantLastReadAt?: string | null;
+    showReadReceipts?: boolean;
     sendReaction: (messageId: string, reaction: string) => void;
     onReply: (message: Message) => void;
     fetchNextPage: () => Promise<any>;
@@ -47,6 +48,7 @@ export default function ChatThread({
     isLoading,
     isTyping,
     otherParticipantLastReadAt,
+    showReadReceipts = true,
     sendReaction,
     onReply,
     fetchNextPage,
@@ -244,10 +246,14 @@ export default function ChatThread({
                             const grouped = !showDateDivider && prev?.senderId === msg.senderId;
 
                             let isRead = false;
+                            let isDelivered = false;
                             if (isOwn && otherParticipantLastReadAt) {
                                 const msgDate = new Date(msg.createdAt).getTime();
                                 const readDate = new Date(otherParticipantLastReadAt).getTime();
-                                isRead = msgDate <= readDate;
+                                if (msgDate <= readDate) {
+                                    isDelivered = true;
+                                    isRead = !!showReadReceipts;
+                                }
                             }
 
                             return (
@@ -260,6 +266,7 @@ export default function ChatThread({
                                         isOwn={isOwn}
                                         grouped={grouped}
                                         isRead={isRead}
+                                        isDelivered={isDelivered}
                                         myUserId={myUserId}
                                         sendReaction={sendReaction}
                                         onReply={onReply}

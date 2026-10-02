@@ -65,6 +65,7 @@ export const useUpdatePrivacy = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.me });
+            queryClient.invalidateQueries({ queryKey: ["conversations"] });
         },
     });
 };

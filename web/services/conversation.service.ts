@@ -17,4 +17,16 @@ export const ConversationService = {
     clearConversation(id: string) {
         return $crud.delete<{ success: boolean }>(`conversations/${id}/messages`);
     },
+
+    pinConversation(id: string) {
+        return $crud.post<{ conversationId: string; isPinned: boolean }>(`conversations/${id}/pin`, {});
+    },
+
+    unpinConversation(id: string) {
+        return $crud.delete<{ conversationId: string; isPinned: boolean }>(`conversations/${id}/pin`);
+    },
+
+    togglePinConversation(id: string) {
+        return $crud.post<{ conversationId: string; isPinned: boolean; pinnedAt: string | null }>(`conversations/${id}/toggle-pin`, {});
+    },
 };

@@ -2,9 +2,9 @@ import { RichObject } from "../../types/explore.types";
 
 export class GithubProvider {
     async search(query: string): Promise<RichObject[]> {
-        if (!query) return [];
+        const searchTerm = query?.trim() || "stars:>50000";
         try {
-            const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=10`;
+            const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(searchTerm)}&sort=stars&order=desc&per_page=12`;
             const response = await fetch(url, {
                 headers: {
                     "User-Agent": "Vyra-App",

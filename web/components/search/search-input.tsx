@@ -20,6 +20,7 @@ export default function SearchInput({ onMessage }: { onMessage?: (user: UserProf
         return (
             <UserCard
                 username={selectedUser.username}
+                initialUser={selectedUser}
                 onBack={() => setSelectedUser(null)}
                 onMessage={onMessage}
             />
@@ -65,7 +66,6 @@ export default function SearchInput({ onMessage }: { onMessage?: (user: UserProf
                             alt="connection-image"
                             className="rounded-full"
                             unoptimized
-                            priority
                         />
                         <p className="font-display text-xl font-semibold tracking-tight">Find Your People.</p>
                     </div>

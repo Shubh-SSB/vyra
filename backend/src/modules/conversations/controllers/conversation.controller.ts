@@ -78,5 +78,41 @@ export class ConversationsController {
             "Conversation messages cleared successfully.",
         );
     }
+
+    @Post(":id/pin")
+    async pinConversation(
+        @Req() req: RequestWithUser,
+        @Param("id") id: string,
+    ) {
+        const result = await this.conversationsService.pinConversation(req.user.id, id);
+        return ApiResponseUtil.success(
+            result,
+            "Conversation pinned successfully.",
+        );
+    }
+
+    @Delete(":id/pin")
+    async unpinConversation(
+        @Req() req: RequestWithUser,
+        @Param("id") id: string,
+    ) {
+        const result = await this.conversationsService.unpinConversation(req.user.id, id);
+        return ApiResponseUtil.success(
+            result,
+            "Conversation unpinned successfully.",
+        );
+    }
+
+    @Post(":id/toggle-pin")
+    async togglePinConversation(
+        @Req() req: RequestWithUser,
+        @Param("id") id: string,
+    ) {
+        const result = await this.conversationsService.togglePinConversation(req.user.id, id);
+        return ApiResponseUtil.success(
+            result,
+            result.isPinned ? "Conversation pinned successfully." : "Conversation unpinned successfully.",
+        );
+    }
 }
 

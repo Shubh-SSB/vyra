@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { ArrowLeft, Info, MoreHorizontal, Sparkles, X, Forward, Trash, Trash2, EyeOff, MoreVertical } from "lucide-react";
+import { ArrowLeft, Info, MoreHorizontal, Sparkles, X, Forward, Trash, Trash2, EyeOff, MoreVertical, Pin, PinOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import IconButton from "@/components/ui/icon-button";
 import Image from "next/image";
-import { useDeleteConversation, useClearConversation } from "@/tanstack/queries/conversation.query";
+import { useDeleteConversation, useClearConversation, useConversations, useTogglePinConversation } from "@/tanstack/queries/conversation.query";
 import ConfirmActionModal from "@/components/modal/confirm-action.modal";
+import { isConversationPinned, getMyUserId } from "./chat-list";
 
 export type ChatHeaderUser = {
     displayName: string;
@@ -98,7 +99,7 @@ export default function ChatHeader({
     user,
     onBack,
     onToggleContext,
-    isFriend = true,
+    isFriend = false,
     isTyping,
     myShowLastSeen,
     selectionMode,
@@ -117,6 +118,11 @@ export default function ChatHeader({
 
     const deleteChat = useDeleteConversation();
     const clearChat = useClearConversation();
+    const { data: conversations } = useConversations();
+    const togglePin = useTogglePinConversation();
+    const myId = getMyUserId();
+    const currentConv = conversations?.find((c) => c.id === conversationId);
+    const isPinned = Boolean(currentConv && isConversationPinned(currentConv, myId));
 
     if (selectionMode) {
         return (
@@ -229,7 +235,7 @@ export default function ChatHeader({
     }
 
     return (
-        <header className="relative z-20 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background px-6">
+        <header className="relative z-20 flex h-16 shrink-0 items-center justify-between border-b border-border bg-black/70 backdrop-blur-md px-6">
             {/* Mobile */}
             <div className="flex items-center gap-3 md:hidden">
                 <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -307,10 +313,33 @@ export default function ChatHeader({
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         e.preventDefault();
-                                        setConfirmClear(true);
+                                        if (conversationId) {
+                                            togglePin.mutate(conversationId);
+                                        }
                                         setShowActionsMenu(false);
                                     }}
                                     className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition cursor-pointer"
+                                >
+                                    {isPinned ? (
+                                        <>
+                                            <PinOff className="h-3.5 w-3.5 text-amber-500" />
+                                            <span>Unpin Conversation</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Pin className="h-3.5 w-3.5 -rotate-45" />
+                                            <span>Pin Conversation</span>
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setConfirmClear(true);
+                                        setShowActionsMenu(false);
+                                    }}
+                                    className="flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-[13px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition cursor-pointer border-t border-white/[0.06]"
                                 >
                                     <Trash className="h-3.5 w-3.5" />
                                     Clear Chat History

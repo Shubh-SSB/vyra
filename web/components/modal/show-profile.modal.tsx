@@ -25,24 +25,24 @@ export default function ShowProfileModal({ open = true, onClose, displayName, us
     const initials = displayName
         ? displayName.trim().split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
         : username
-        ? username.slice(0, 2).toUpperCase()
-        : "?";
+            ? username.slice(0, 2).toUpperCase()
+            : "?";
 
     if (typeof window === "undefined") return null;
 
     return createPortal(
         <AnimatePresence>
             {open && (
-                <motion.div key="show-profile-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+                <motion.div key="show-profile-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-3" onClick={onClose}>
                     <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
-                    <motion.div key="show-profile-card" initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.97 }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full sm:w-[420px] max-h-[82vh] sm:max-h-[520px] rounded-t-3xl sm:rounded-2xl border border-white/10 bg-[#141416]/95 shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden">
+                    <motion.div key="show-profile-card" initial={{ opacity: 0, y: 40, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.97 }} transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }} onClick={(e) => e.stopPropagation()} className="relative z-10 w-full sm:w-[420px] max-h-[90vh] sm:max-h-[580px] rounded-t-3xl sm:rounded-2xl border border-white/10 bg-[#141416]/95 shadow-2xl backdrop-blur-xl flex flex-col overflow-y-auto overflow-x-hidden">
                         {/* Mobile handle indicator */}
                         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 sm:hidden flex justify-center pb-1 shrink-0">
                             <div className="h-1 w-10 rounded-full bg-white/30" />
                         </div>
 
                         {/* Banner Image Container */}
-                        <div className="relative h-[140px] w-full shrink-0">
+                        <div className="relative h-[150px] sm:h-[160px] w-full shrink-0">
                             <Image
                                 src={bannerUrl || "/bg-2.jpeg"}
                                 alt="banner"
@@ -51,7 +51,7 @@ export default function ShowProfileModal({ open = true, onClose, displayName, us
                                 priority
                             />
                             {/* Gradient Overlay for modern look and text contrast */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#141416] via-[#141416]/20 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#141416] via-[#141416]/30 to-transparent" />
 
                             {/* Close Button on Banner */}
                             <button
@@ -65,13 +65,13 @@ export default function ShowProfileModal({ open = true, onClose, displayName, us
                         {/* Profile Details Container (Avatar overlapping) */}
                         <div className="relative px-6 pb-6 flex flex-col items-center">
                             {/* Avatar */}
-                            <div className="relative -mt-[50px] z-10 flex h-[250px] w-[250px] items-center justify-center rounded-full bg-gradient-to-tr from-main/90 via-main/20 to-main/90 p-[3px] shadow-lg">
-                                <div className="relative h-full w-full overflow-hidden rounded-full border-2 border-[#141416] bg-[#141416] flex items-center justify-center text-4xl font-bold text-foreground">
+                            <div className="relative -mt-[65px] sm:-mt-[75px] z-10 flex h-[160px] w-[160px] sm:h-[180px] sm:w-[180px] items-center justify-center rounded-full bg-gradient-to-tr from-main/90 via-main/20 to-main/90 p-[3px] shadow-2xl">
+                                <div className="relative h-full w-full overflow-hidden rounded-full border-2 border-[#141416] bg-[#141416] flex items-center justify-center text-4xl font-bold text-foreground shadow-inner">
                                     {avatarUrl ? (
                                         <Image
                                             src={avatarUrl}
                                             fill
-                                            alt={displayName}
+                                            alt={displayName || username || "avatar"}
                                             className="object-cover"
                                         />
                                     ) : (
@@ -90,7 +90,7 @@ export default function ShowProfileModal({ open = true, onClose, displayName, us
                             <div className="w-full h-px bg-white/5 my-5" />
 
                             {/* About/Bio */}
-                            <div className="w-full space-y-2 text-left">
+                            <div className="w-full space-y-1 text-left">
                                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">About</p>
                                 <p className="text-foreground/90 text-sm leading-relaxed font-normal">
                                     {bio || "No bio yet."}

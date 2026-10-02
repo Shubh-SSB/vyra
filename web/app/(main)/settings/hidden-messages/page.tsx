@@ -152,7 +152,7 @@ export default function HiddenMessagesPage() {
                                                             </span>
                                                         </div>
                                                         <p className={cn(
-                                                            "text-[13px] text-muted-foreground leading-relaxed line-clamp-2",
+                                                            "text-[13px] text-main leading-relaxed line-clamp-2",
                                                             msg.deletedAt && "italic opacity-50"
                                                         )}>
                                                             {msg.deletedAt ? "This message was deleted" : msg.content}

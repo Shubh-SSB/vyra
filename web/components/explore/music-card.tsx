@@ -10,7 +10,7 @@ interface MusicCardProps {
 
 export function MusicCard({ item, onShare, isPlaying, onPlayToggle }: MusicCardProps) {
     return (
-        <div className="group/music relative flex flex-col rounded-2xl border border-white/[0.04] hover:border-main/30 transition-transform duration-300 overflow-hidden shadow-lg bg-gray-400">
+        <div className="group/music relative flex flex-col rounded-2xl border border-white/5 bg-[#0d1117]/80 hover:bg-[#121820]/90 hover:border-blue-500/30 transition-all duration-300 overflow-hidden shadow-lg">
             {/* Square Album Cover */}
             <div className="relative w-full bg-black/45 overflow-hidden flex items-center justify-center shrink-0 rounded-2xl">
                 {item.image ? (

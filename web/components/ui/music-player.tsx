@@ -99,6 +99,23 @@ export function MusicPlayer({
     onTrackChangeRef.current = onTrackChange;
   }, [onTrackChange]);
 
+  // Listen for global pause signals (e.g. Listen Together or other active audio)
+  useEffect(() => {
+    const handlePauseAll = () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      shouldPlayRef.current = false;
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+    window.addEventListener("vyra:media:pauseAll", handlePauseAll);
+    return () => {
+      window.removeEventListener("vyra:media:pauseAll", handlePauseAll);
+    };
+  }, []);
+
   const track = tracks[index];
 
   // Load the current track and (if flagged) begin playing.

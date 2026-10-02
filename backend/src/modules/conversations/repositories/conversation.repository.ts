@@ -71,6 +71,7 @@ export class ConversationRepository {
                 lastSeen: true,
                 isEmailVerified: true,
                 isPhoneVerified: true,
+                showReadReceipts: true,
               },
             }
           },
@@ -90,10 +91,12 @@ export class ConversationRepository {
       },
     });
 
-    return Promise.all(
+    const result = await Promise.all(
       conversations.map(async (conv) => {
         const participant = conv.participants.find((p) => p.userId === userId);
         const lastReadAt = participant?.lastReadAt;
+        const isPinned = participant?.isPinned ?? false;
+        const pinnedAt = participant?.pinnedAt ?? null;
 
         const unreadCount = await this.prisma.message.count({
           where: {
@@ -107,9 +110,24 @@ export class ConversationRepository {
         return {
           ...conv,
           unreadCount,
+          isPinned,
+          pinnedAt,
         };
       })
     );
+
+    return result.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      if (a.isPinned && b.isPinned) {
+        const aPin = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+        const bPin = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+        return bPin - aPin;
+      }
+      const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
+    });
   }
 
   async findDirectConversation(
@@ -152,6 +170,7 @@ export class ConversationRepository {
                 lastSeen: true,
                 isEmailVerified: true,
                 isPhoneVerified: true,
+                showReadReceipts: true,
               },
             }
           },
@@ -257,5 +276,71 @@ export class ConversationRepository {
         return this.prisma.message.deleteMany({
             where: { conversationId },
         });
+    }
+
+    async pinConversation(userId: string, conversationId: string) {
+        return this.prisma.conversationParticipant.update({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId,
+                },
+            },
+            data: {
+                isPinned: true,
+                pinnedAt: new Date(),
+            },
+        });
+    }
+
+    async unpinConversation(userId: string, conversationId: string) {
+        return this.prisma.conversationParticipant.update({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId,
+                },
+            },
+            data: {
+                isPinned: false,
+                pinnedAt: null,
+            },
+        });
+    }
+
+    async togglePinConversation(userId: string, conversationId: string) {
+        const participant = await this.prisma.conversationParticipant.findUnique({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId,
+                },
+            },
+        });
+
+        if (!participant) {
+            throw new Error("Conversation participant not found");
+        }
+
+        const newIsPinned = !participant.isPinned;
+
+        const updated = await this.prisma.conversationParticipant.update({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId,
+                },
+            },
+            data: {
+                isPinned: newIsPinned,
+                pinnedAt: newIsPinned ? new Date() : null,
+            },
+        });
+
+        return {
+            conversationId,
+            isPinned: updated.isPinned,
+            pinnedAt: updated.pinnedAt,
+        };
     }
 }

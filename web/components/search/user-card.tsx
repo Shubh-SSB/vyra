@@ -1,15 +1,19 @@
 "use client";
 
+import { useState } from "react";
+import Image from "next/image";
 import { useProfile } from "@/tanstack/queries/user.query";
 import {
     useRelationship,
     useSendFriendRequest,
     useCancelFriendRequest,
 } from "@/tanstack/queries/friend.query";
-import { ChevronLeft, Globe, Lock, MapPin, Send, UserCheck, UserMinus, UserPlus } from "lucide-react";
+import { ChevronLeft, Globe, Lock, MapPin, Maximize2, Send, UserCheck, UserMinus, UserPlus } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { UserProfile } from "@/types/user.type";
+import { SearchUser } from "@/tanstack/queries/user.types";
+import ShowProfileModal from "../modal/show-profile.modal";
 
 const ACCENT = "oklch(0.65 0.18 280)";
 
@@ -17,26 +21,35 @@ const tags = ["AI", "Space", "Technology", "Startups"];
 
 export default function UserCard({
     username,
+    initialUser,
     onBack,
     onMessage,
 }: {
     username: string;
+    initialUser?: SearchUser | null;
     onBack: () => void;
     onMessage?: (user: UserProfile) => void;
 }) {
     const { data: profile, isLoading, error } = useProfile(username);
+    const [showEnlarged, setShowEnlarged] = useState(false);
 
-    // Relationship + mutations (only active once profile.id is available)
-    const { data: relationship, isLoading: relLoading } = useRelationship(profile?.id);
+    // Merge profile query data with initial user data from search results
+    const displayUser = profile || initialUser;
 
-    const sendRequest = useSendFriendRequest(profile?.id ?? "");
+    // Target user ID for relationship queries
+    const targetUserId = displayUser?.id ?? "";
+
+    // Relationship + mutations (only active once targetUserId is available)
+    const { data: relationship, isLoading: relLoading } = useRelationship(targetUserId);
+
+    const sendRequest = useSendFriendRequest(targetUserId);
     const cancelRequest = useCancelFriendRequest(
         relationship === "PENDING_SENT"
-            ? undefined // we'd need the requestId; see note below
+            ? undefined
             : undefined
     );
 
-    if (isLoading) {
+    if (isLoading && !displayUser) {
         return (
             <div className="flex flex-1 flex-col items-center justify-center p-8">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-foreground" />
@@ -45,7 +58,7 @@ export default function UserCard({
         );
     }
 
-    if (error || !profile) {
+    if ((error || !displayUser) && !initialUser) {
         return (
             <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
                 <p className="text-sm text-destructive font-medium">Failed to load profile</p>
@@ -59,13 +72,16 @@ export default function UserCard({
         );
     }
 
-    const initials = profile.displayName
-        ? profile.displayName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-        : profile.username.slice(0, 2).toUpperCase();
+    if (!displayUser) return null;
+
+    const initials = displayUser.displayName
+        ? displayUser.displayName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+        : displayUser.username.slice(0, 2).toUpperCase();
 
     const isPublic =
-        profile.profileVisibility === "PUBLIC" ||
-        profile.profileVisibility === "FRIENDS_ONLY";
+        displayUser.profileVisibility === "PUBLIC" ||
+        (displayUser.profileVisibility === "FRIENDS_ONLY" && relationship === "FRIENDS") ||
+        displayUser.profileVisibility === undefined;
 
     // ── Connect button state ──────────────────────────────────────────────────
     type BtnConfig = { label: string; icon: React.ReactNode; style: string; action: () => void };
@@ -92,14 +108,14 @@ export default function UserCard({
                     label: "Requested",
                     icon: <UserMinus className="h-4 w-4" strokeWidth={1.75} />,
                     style: "border border-border bg-surface text-muted-foreground hover:bg-surface-elevated",
-                    action: () => { }, // cancel needs requestId from outgoing list
+                    action: () => { },
                 };
             case "PENDING_RECEIVED":
                 return {
                     label: "Accept",
                     icon: <UserPlus className="h-4 w-4" strokeWidth={1.75} />,
                     style: "bg-emerald-500 text-white hover:bg-emerald-400",
-                    action: () => { }, // accept needs requestId from incoming list
+                    action: () => { },
                 };
             default:
                 return {
@@ -113,7 +129,7 @@ export default function UserCard({
 
     return (
         <motion.div
-            key={profile.id}
+            key={displayUser.id}
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
@@ -123,7 +139,7 @@ export default function UserCard({
             <div className="flex items-center gap-2 px-4 pt-4 pb-2">
                 <button
                     onClick={onBack}
-                    className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
                 >
                     <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
                     Back to Search
@@ -131,41 +147,86 @@ export default function UserCard({
             </div>
 
             <div className="flex-1 overflow-y-auto pb-8">
-                {/* Cover + avatar */}
-                <div
-                    className="relative mx-5 mt-2 flex h-28 items-end rounded-2xl p-4"
-                    style={{
-                        background: `linear-gradient(135deg, ${ACCENT}55 0%, oklch(0.14 0.04 240) 100%)`,
-                        border: "1px solid oklch(0.25 0.04 240)",
-                    }}
-                >
+                {/* Cover Banner + Avatar */}
+                <div className="relative mx-5 mt-2">
+                    {/* Banner */}
                     <div
-                        className="flex h-16 w-16 items-center justify-center rounded-full text-[22px] font-semibold text-white bg-white/5 backdrop-blur-sm border border-white/20"
+                        onClick={() => setShowEnlarged(true)}
+                        className="group relative h-32 sm:h-36 w-full overflow-hidden rounded-2xl border border-white/10 cursor-pointer shadow-md transition-all hover:border-white/20"
+                        title="Click to view enlarged profile banner and avatar"
                     >
-                        {initials}
+                        {displayUser.bannerUrl ? (
+                            <Image
+                                src={displayUser.bannerUrl}
+                                alt="banner"
+                                fill
+                                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                priority
+                            />
+                        ) : (
+                            <div
+                                className="h-full w-full"
+                                style={{
+                                    background: `linear-gradient(135deg, ${ACCENT}55 0%, oklch(0.14 0.04 240) 100%)`,
+                                }}
+                            />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+
+                        {/* Enlarge Hint on Hover */}
+                        <div className="absolute top-3 right-3 flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-medium text-white/90 opacity-0 group-hover:opacity-100 backdrop-blur-md border border-white/10 transition-opacity">
+                            <Maximize2 className="h-3 w-3" />
+                            <span>Enlarge</span>
+                        </div>
+
+                        {!isPublic && (
+                            <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-medium text-white/90 backdrop-blur-md border border-white/10">
+                                <Lock className="h-3 w-3" strokeWidth={1.75} />
+                                Private
+                            </span>
+                        )}
                     </div>
-                    {!isPublic && (
-                        <span className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
-                            <Lock className="h-3 w-3" strokeWidth={1.75} />
-                            Private
-                        </span>
-                    )}
+
+                    {/* Avatar overlapping banner */}
+                    <div className="relative -mt-10 ml-5 flex items-end justify-between">
+                        <div
+                            onClick={() => setShowEnlarged(true)}
+                            className="group relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-main/90 via-main/20 to-main/90 p-[2.5px] shadow-xl cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                            title="Click to view enlarged avatar"
+                        >
+                            <div className="relative h-full w-full overflow-hidden rounded-full border-2 border-background bg-surface-elevated flex items-center justify-center text-xl font-bold text-foreground">
+                                {displayUser.avatarUrl ? (
+                                    <Image
+                                        src={displayUser.avatarUrl}
+                                        alt={displayUser.displayName || displayUser.username}
+                                        fill
+                                        className="object-cover"
+                                    />
+                                ) : (
+                                    initials
+                                )}
+                            </div>
+                            <div className="absolute inset-0 rounded-full bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Maximize2 className="h-4 w-4 text-white" />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Name + username */}
-                <div className="px-5 pt-4">
+                <div className="px-5 pt-3">
                     <h2 className="font-display text-[19px] font-semibold tracking-tight">
-                        {profile.displayName}
+                        {displayUser.displayName}
                     </h2>
-                    <p className="text-[13px] text-muted-foreground">@{profile.username}</p>
+                    <p className="text-[13px] text-muted-foreground">@{displayUser.username}</p>
                 </div>
 
                 {isPublic ? (
                     <>
                         {/* Bio */}
-                        {profile.bio && (
+                        {displayUser.bio && (
                             <p className="mx-5 mt-3 text-[13px] leading-relaxed text-foreground/80">
-                                {profile.bio}
+                                {displayUser.bio}
                             </p>
                         )}
 
@@ -216,7 +277,7 @@ export default function UserCard({
                         onClick={connectBtn.action}
                         disabled={sendRequest.isPending || relLoading}
                         className={cn(
-                            "flex flex-1 items-center justify-center gap-1.5 rounded-full py-2.5 text-[13px] font-medium transition-colors disabled:opacity-60",
+                            "flex flex-1 items-center justify-center gap-1.5 rounded-full py-2.5 text-[13px] font-medium transition-colors disabled:opacity-60 cursor-pointer",
                             connectBtn.style
                         )}
                     >
@@ -224,14 +285,27 @@ export default function UserCard({
                         {sendRequest.isPending ? "Sending..." : connectBtn.label}
                     </button>
                     <button
-                        onClick={() => onMessage?.(profile)}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface py-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-surface-elevated"
+                        onClick={() => onMessage?.(displayUser as UserProfile)}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface py-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-surface-elevated cursor-pointer"
                     >
                         <Send className="h-4 w-4" strokeWidth={1.75} />
                         Message
                     </button>
                 </div>
             </div>
+
+            {/* Enlarged Modal View */}
+            {showEnlarged && (
+                <ShowProfileModal
+                    open={showEnlarged}
+                    onClose={() => setShowEnlarged(false)}
+                    displayName={displayUser.displayName}
+                    username={displayUser.username}
+                    avatarUrl={displayUser.avatarUrl}
+                    bannerUrl={displayUser.bannerUrl}
+                    bio={displayUser.bio}
+                />
+            )}
         </motion.div>
     );
 }

@@ -360,11 +360,18 @@ export class ChatGateway
             data: { isRead: true },
         });
 
+        // Check if user has read receipts enabled
+        const currentUser = await this.prisma.user.findUnique({
+            where: { id: user.id },
+            select: { showReadReceipts: true },
+        });
+
         // Broadcast to all online participants in this conversation
         this.server.to(conversationId).emit("messagesRead", {
             conversationId,
             userId: user.id,
             lastReadAt: timestamp,
+            showReadReceipts: currentUser?.showReadReceipts ?? true,
         });
     }
 

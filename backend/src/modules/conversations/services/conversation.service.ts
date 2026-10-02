@@ -82,4 +82,16 @@ export class ConversationsService {
 
         return this.conversationRepository.clearMessages(id);
     }
+
+    async pinConversation(userId: string, conversationId: string) {
+        return this.conversationRepository.pinConversation(userId, conversationId);
+    }
+
+    async unpinConversation(userId: string, conversationId: string) {
+        return this.conversationRepository.unpinConversation(userId, conversationId);
+    }
+
+    async togglePinConversation(userId: string, conversationId: string) {
+        return this.conversationRepository.togglePinConversation(userId, conversationId);
+    }
 }

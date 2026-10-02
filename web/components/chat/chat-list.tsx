@@ -1,16 +1,18 @@
 "use client";
 
-import { useConversations } from "@/tanstack/queries/conversation.query";
-import { ConversationPreview } from "@/types/conversation";
+import { useMemo, useState } from "react";
 import Image from "next/image";
-import { MessageSquare, Mic, Paperclip } from "lucide-react";
+import { MessageSquare, Mic, Paperclip, Pin, PinOff } from "lucide-react";
+import { useConversations, useTogglePinConversation } from "@/tanstack/queries/conversation.query";
+import { ConversationPreview } from "@/types/conversation";
+import ShowProfileModal from "../modal/show-profile.modal";
 import { cn } from "@/lib/utils";
 import { getAccessToken } from "@/lib/token";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Decode JWT payload without a library. */
-function getMyUserId(): string | null {
+export function getMyUserId(): string | null {
     try {
         const token = getAccessToken();
         if (!token) return null;
@@ -19,6 +21,13 @@ function getMyUserId(): string | null {
     } catch {
         return null;
     }
+}
+
+/** Check if conversation is pinned either on root or within current user participant. */
+export function isConversationPinned(conv: ConversationPreview, myId?: string | null): boolean {
+    if (conv.isPinned) return true;
+    if (myId && conv.participants?.some((p) => p.userId === myId && p.isPinned)) return true;
+    return false;
 }
 
 /** For DIRECT conversations, return the participant who is NOT the logged-in user. */
@@ -53,16 +62,20 @@ function ConversationRow({
     active,
     onClick,
     isTyping,
+    onTogglePin,
 }: {
     conv: ConversationPreview;
     myId: string | null;
     active?: boolean;
     onClick?: () => void;
     isTyping?: boolean;
+    onTogglePin?: (id: string) => void;
 }) {
     const otherUser = getOtherUser(conv, myId);
     const [openProfile, setOpenProfile] = useState(false);
     if (!otherUser) return null;
+
+    const isPinned = isConversationPinned(conv, myId);
 
     const initials = otherUser.displayName
         ? otherUser.displayName.trim().split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
@@ -101,36 +114,26 @@ function ConversationRow({
 
     const unread = conv.unreadCount ?? 0;
 
-
     return (
-        <button
+        <div
+            role="button"
+            tabIndex={0}
             onClick={onClick}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onClick?.();
+                }
+            }}
             className={cn(
-                "group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-4 py-3 text-left transition-all duration-150 my-0.5",
+                "group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-4 py-3 text-left transition-all duration-150 my-0.5 select-none focus:outline-none",
                 active
                     ? "border border-main/20 shadow-md bg-white/15 cursor-pointer"
-                    : "hover:bg-white/15 hover:border hover:border-main/20 cursor-pointer"
+                    : isPinned
+                        ? "bg-white/[0.04] hover:bg-white/15 hover:border hover:border-main/20 cursor-pointer"
+                        : "hover:bg-white/15 hover:border hover:border-main/20 cursor-pointer"
             )}
         >
-            {/* Background Image & Overlay */}
-            {/* <div className="absolute inset-0 pointer-events-none">
-                <Image
-                    src="/bg1.jpeg"
-                    alt="Tile background"
-                    fill
-                    className={cn(
-                        "object-cover transition-transform duration-300 group-hover:scale-105",
-                        active ? "opacity-75" : "opacity-50 group-hover:opacity-70"
-                    )}
-                />
-                <div
-                    className={cn(
-                        "absolute inset-0 bg-gradient-to-r from-background/85 via-background/50 to-transparent",
-                        active ? "from-background/75 via-background/40 to-transparent" : ""
-                    )}
-                />
-            </div> */}
-
             {/* Avatar */}
             <div className="relative shrink-0">
                 {otherUser.avatarUrl ? (
@@ -175,9 +178,37 @@ function ConversationRow({
                     <p className="truncate text-[13px] font-semibold text-foreground">
                         {otherUser.displayName.trim()}
                     </p>
-                    {lastTime && (
-                        <span className="shrink-0 text-[11px] text-muted-foreground">{lastTime}</span>
-                    )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {isPinned ? (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onTogglePin?.(conv.id);
+                                }}
+                                className="group/pinbtn flex h-5 w-5 items-center justify-center rounded text-amber-500 hover:text-red-400 hover:bg-white/10 transition-all cursor-pointer"
+                                title="Pinned conversation (Click to unpin)"
+                            >
+                                <Pin className="h-3.5 w-3.5 fill-amber-500 text-amber-500 -rotate-45 drop-shadow-[0_0_6px_rgba(245,158,11,0.45)] group-hover/pinbtn:hidden" />
+                                <PinOff className="hidden h-3.5 w-3.5 text-red-400 group-hover/pinbtn:block" />
+                            </button>
+                        ) : onTogglePin ? (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onTogglePin(conv.id);
+                                }}
+                                className="flex h-5 w-5 items-center justify-center rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground hover:bg-white/10 transition-all cursor-pointer"
+                                title="Pin chat to top"
+                            >
+                                <Pin className="h-3.5 w-3.5 -rotate-45" />
+                            </button>
+                        ) : null}
+                        {lastTime && (
+                            <span className="shrink-0 text-[11px] text-muted-foreground">{lastTime}</span>
+                        )}
+                    </div>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-[12px] text-muted-foreground flex-1">
@@ -194,12 +225,11 @@ function ConversationRow({
                     )}
                 </div>
             </div>
-        </button>
+        </div>
     );
 }
 
-import { useMemo, useState } from "react";
-import ShowProfileModal from "../modal/show-profile.modal";
+// ── ChatList ──────────────────────────────────────────────────────────────────
 
 export default function ChatList({
     activeId,
@@ -213,18 +243,35 @@ export default function ChatList({
     query?: string;
 }) {
     const { data, isLoading } = useConversations();
+    const togglePin = useTogglePinConversation();
     const myId = getMyUserId();
 
     const filteredData = useMemo(() => {
         if (!data) return [];
         const q = query.toLowerCase().trim();
-        if (!q) return data;
-        return data.filter((conv) => {
-            const otherUser = getOtherUser(conv, myId);
-            if (!otherUser) return false;
-            const displayName = (otherUser.displayName ?? "").toLowerCase();
-            const username = (otherUser.username ?? "").toLowerCase();
-            return displayName.includes(q) || username.includes(q);
+        const list = q
+            ? data.filter((conv) => {
+                const otherUser = getOtherUser(conv, myId);
+                if (!otherUser) return false;
+                const displayName = (otherUser.displayName ?? "").toLowerCase();
+                const username = (otherUser.username ?? "").toLowerCase();
+                return displayName.includes(q) || username.includes(q);
+            })
+            : data;
+
+        return [...list].sort((a, b) => {
+            const aPinned = isConversationPinned(a, myId);
+            const bPinned = isConversationPinned(b, myId);
+            if (aPinned && !bPinned) return -1;
+            if (!aPinned && bPinned) return 1;
+            if (aPinned && bPinned) {
+                const aPin = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+                const bPin = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+                return bPin - aPin;
+            }
+            const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+            const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+            return bTime - aTime;
         });
     }, [data, query, myId]);
 
@@ -272,6 +319,7 @@ export default function ChatList({
                     active={conv.id === activeId}
                     onClick={() => onSelect?.(conv)}
                     isTyping={typingConversations?.[conv.id] ?? false}
+                    onTogglePin={(id) => togglePin.mutate(id)}
                 />
             ))}
         </div>

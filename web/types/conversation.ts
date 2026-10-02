@@ -4,6 +4,8 @@ export type ConversationParticipant = {
     role: "OWNER" | "ADMIN" | "MEMBER";
     joinedAt: string;
     lastReadAt?: string | null;
+    isPinned?: boolean;
+    pinnedAt?: string | null;
     user: {
         id: string;
         username: string;
@@ -14,6 +16,7 @@ export type ConversationParticipant = {
         email?: string;
         lastSeen?: string | null;
         bio?: string;
+        showReadReceipts?: boolean;
     };
 };
 
@@ -41,5 +44,7 @@ export type ConversationPreview = {
     participants: ConversationParticipant[];
     messages: ConversationMessage[]; // array, last item is newest
     unreadCount?: number;
+    isPinned?: boolean;
+    pinnedAt?: string | null;
 };
 

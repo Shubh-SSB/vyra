@@ -76,8 +76,9 @@ export default function VoicePlayer({ src, duration, isOwn = false }: VoicePlaye
         return `${minutes}:${seconds.toString().padStart(2, "0")}`;
     };
 
+
     return (
-        <div className="flex items-center gap-3 py-1 min-w-[220px] md:min-w-[280px]">
+        <div className="flex items-center justify-center gap-3 py-1 min-w-[220px] md:min-w-[280px]">
             <audio ref={audioRef} src={src} preload="metadata" />
 
             {/* Play/Pause Button */}
@@ -85,10 +86,10 @@ export default function VoicePlayer({ src, duration, isOwn = false }: VoicePlaye
                 type="button"
                 onClick={togglePlay}
                 className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition duration-200 active:scale-95 cursor-pointer shadow-sm",
+                    "flex items-center justify-center rounded-full transition duration-200 active:scale-95 cursor-pointer shadow-sm",
                     isOwn
-                        ? "bg-background text-foreground hover:bg-background/90"
-                        : "bg-foreground text-background hover:bg-foreground/90"
+                        ? "text-white hover:bg-background/90"
+                        : "text-background hover:bg-foreground/90"
                 )}
                 aria-label={isPlaying ? "Pause voice note" : "Play voice note"}
             >
@@ -100,32 +101,27 @@ export default function VoicePlayer({ src, duration, isOwn = false }: VoicePlaye
             </button>
 
             {/* Waveform / Progress Slider */}
-            <div className="flex flex-col flex-1 gap-1 justify-center">
-                <WaveformSeekbar
-                    src={src}
-                    progress={progress}
-                    onSeek={(seekPercent) => {
-                        const audio = audioRef.current;
-                        if (!audio) return;
-                        const totalDuration = audio.duration && isFinite(audio.duration) && audio.duration > 0 ? audio.duration : duration;
-                        if (!totalDuration) return;
-                        const newTime = (seekPercent / 100) * totalDuration;
-                        audio.currentTime = newTime;
-                        setCurrentTime(newTime);
-                        setProgress(seekPercent);
-                    }}
-                    isOwn={isOwn}
-                />
+            <WaveformSeekbar
+                src={src}
+                progress={progress}
+                onSeek={(seekPercent) => {
+                    const audio = audioRef.current;
+                    if (!audio) return;
+                    const totalDuration = audio.duration && isFinite(audio.duration) && audio.duration > 0 ? audio.duration : duration;
+                    if (!totalDuration) return;
+                    const newTime = (seekPercent / 100) * totalDuration;
+                    audio.currentTime = newTime;
+                    setCurrentTime(newTime);
+                    setProgress(seekPercent);
+                }}
+                isOwn={isOwn}
+            />
 
-                {/* Timestamps */}
-                <div className="flex justify-between items-center text-[10px] opacity-75 font-mono select-none">
-                    <span className={isOwn ? "text-foreground/75" : "text-foreground"}>
-                        {formatTime(currentTime)}
-                    </span>
-                    <span className={isOwn ? "text-foreground/75" : "text-foreground"}>
-                        {formatTime(duration)}
-                    </span>
-                </div>
+            {/* Timestamps */}
+            <div className="flex justify-between items-center text-sm opacity-75 font-mono select-none">
+                <span className={isOwn ? "text-foreground/75" : "text-foreground"}>
+                    {formatTime(((duration + 1) - (currentTime)))}
+                </span>
             </div>
         </div>
     );

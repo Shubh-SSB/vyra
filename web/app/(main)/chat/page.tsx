@@ -20,6 +20,7 @@ import { VyraIcon } from "@/components/vyra/logo";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import ExploreCard from "@/components/explore/explore-card";
+import { ExploreSkeletons } from "@/components/explore/explore-skeletons";
 import { useDebounce } from "use-debounce";
 import { useExploreSearch } from "@/tanstack/queries/explore.query";
 import ShareObjectModal from "@/components/modal/share-object.modal";
@@ -192,6 +193,7 @@ function ChatPageContent() {
 
   useEffect(() => {
     if (tab === "explore") {
+      setSidebarTab("chats");
       setExploreActive(true);
       setActiveId(null);
       setMobileView("chat");
@@ -343,7 +345,7 @@ function ChatPageContent() {
         [payload.conversationId]: false,
       }));
     },
-    onMessagesRead: ({ conversationId, userId, lastReadAt }) => {
+    onMessagesRead: ({ conversationId, userId, lastReadAt, showReadReceipts }) => {
       queryClient.setQueryData<any[]>(["conversations"], (current = []) => {
         return current.map((conv) => {
           if (conv.id !== conversationId) return conv;
@@ -353,7 +355,14 @@ function ChatPageContent() {
             unreadCount: isMe ? 0 : conv.unreadCount,
             participants: conv.participants.map((part: any) => {
               if (part.userId !== userId) return part;
-              return { ...part, lastReadAt };
+              return {
+                ...part,
+                lastReadAt,
+                user: {
+                  ...part.user,
+                  ...(showReadReceipts !== undefined ? { showReadReceipts } : {}),
+                },
+              };
             }),
           };
         });
@@ -430,6 +439,15 @@ function ChatPageContent() {
         if (payload.allowed) {
           // Recipient accepted! Start host session
           if (pendingSyncSession && pendingSyncSession.conversationId === payload.conversationId) {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("vyra:media:pauseAll"));
+              document.querySelectorAll("audio").forEach((a) => {
+                try {
+                  a.pause();
+                  a.currentTime = 0;
+                } catch { }
+              });
+            }
             const hostSession = {
               ...pendingSyncSession,
               role: "host" as const,
@@ -564,7 +582,7 @@ function ChatPageContent() {
 
 
   return (
-    <div className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-background text-foreground md:static md:h-screen">
+    <div className="fixed inset-0 flex h-[100dvh] w-full overflow-hidden bg-black text-foreground md:static md:h-screen">
       <NewChatModal
         open={newChatOpen}
         onClose={() => setNewChatOpen(false)}
@@ -675,6 +693,7 @@ function ChatPageContent() {
                   <button
                     onClick={() => {
                       setShowMobileMenu(false);
+                      setSidebarTab("chats");
                       setExploreActive(true);
                       setActiveId(null);
                       setMobileView("chat");
@@ -741,6 +760,7 @@ function ChatPageContent() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => {
+                      setSidebarTab("chats");
                       setExploreActive(true);
                       setActiveId(null);
                       setMobileView("chat");
@@ -748,13 +768,13 @@ function ChatPageContent() {
                     className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground cursor-pointer"
                     title="Explore & Share"
                   >
-                    <Compass className="h-4 w-4" strokeWidth={1.75} />
+                    <Compass className="h-6 w-6" strokeWidth={1.75} />
                   </button>
                   <button
                     onClick={() => setNewChatOpen(true)}
                     className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground cursor-pointer"
                   >
-                    <Plus className="h-4 w-4" strokeWidth={1.75} />
+                    <Plus className="h-6 w-6" strokeWidth={1.75} />
                   </button>
                 </div>
               </div>
@@ -801,7 +821,7 @@ function ChatPageContent() {
             }}
           />
         )}
-            </aside>
+      </aside>
       {exploreActive ? (
         <div className={cn(
           "flex-1 h-full flex flex-col bg-background min-w-0 min-h-0",
@@ -837,7 +857,7 @@ function ChatPageContent() {
                 <input
                   value={exploreQuery}
                   onChange={(e) => setExploreQuery(e.target.value)}
-                  placeholder="Search songs, movies, books, code, models..."
+                  placeholder="Search songs, AI models, GitHub repos..."
                   className="h-9 w-full rounded-xl border border-border bg-surface pl-9 pr-4 text-[13px] font-medium text-foreground placeholder:text-muted-foreground/60 focus:border-ring focus:outline-none transition-all shadow-inner"
                 />
               </div>
@@ -847,13 +867,9 @@ function ChatPageContent() {
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-4 scrollbar-none shrink-0">
               {[
                 { label: "All Items", value: undefined },
-                { label: "🎵 Music & Audio", value: "MUSIC" },
-                { label: "🎬 Movies & Shows", value: "MOVIE" },
-                { label: "📚 Books & Literature", value: "BOOK" },
-                { label: "🎮 Video Games", value: "GAME" },
-                { label: "💻 GitHub Repos", value: "GITHUB" },
+                { label: "🎵 Music", value: "MUSIC" },
                 { label: "🤖 AI Models", value: "AI_MODEL" },
-                { label: "📷 Photos & Images", value: "PHOTO" },
+                { label: "💻 GitHub Repos", value: "GITHUB" },
               ].map((badge) => (
                 <button
                   key={badge.label}
@@ -873,30 +889,21 @@ function ChatPageContent() {
 
           {/* Results Grid */}
           <div className="flex-1 overflow-y-auto px-8 py-6">
-            {exploreLoading && (
-              <div className="flex flex-col items-center justify-center py-32 gap-3">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-muted-foreground font-medium">Querying universal directory...</span>
-              </div>
-            )}
-
-            {!exploreLoading && !debouncedExploreQuery && exploreResults.length === 0 && (
+            {exploreLoading ? (
+              <ExploreSkeletons filter={exploreFilter} />
+            ) : exploreResults.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-center max-w-sm mx-auto select-none">
                 <Compass className="h-14 w-14 text-muted-foreground/30 mb-4 animate-[pulse_3s_infinite]" />
-                <p className="text-sm font-semibold text-muted-foreground/80">Search Anything</p>
+                <p className="text-sm font-semibold text-muted-foreground/80">
+                  {debouncedExploreQuery ? "No matching objects found" : "Explore Directory"}
+                </p>
                 <p className="text-xs text-muted-foreground/60 leading-normal mt-1.5">
-                  Explore integrations with Deezer, TMDB, OpenLibrary, RAWG, GitHub, Hugging Face, and Picsum Photos, then send rich media directly to your active contacts.
+                  {debouncedExploreQuery
+                    ? "Try searching with different keywords for songs, models, or repos."
+                    : "Discover trending music, top AI models from Hugging Face, and popular GitHub repositories, then send rich media directly to your active contacts."}
                 </p>
               </div>
-            )}
-
-            {!exploreLoading && (debouncedExploreQuery || exploreFilter === "PHOTO" || exploreFilter === "MUSIC") && exploreResults.length === 0 && (
-              <div className="text-center py-24 text-xs text-muted-foreground">
-                No matching objects found.
-              </div>
-            )}
-
-            {!exploreLoading && (debouncedExploreQuery || exploreFilter === "PHOTO" || exploreFilter === "MUSIC") && exploreResults.length > 0 && (
+            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-8">
                 {exploreResults.map((item: any) => (
                   <ExploreCard
@@ -934,6 +941,7 @@ function ChatPageContent() {
           }}
           isFriend={isFriend}
           myShowLastSeen={meResponse?.data?.showLastSeen ?? true}
+          myShowReadReceipts={meResponse?.data?.showReadReceipts ?? true}
           syncSession={syncSession}
           setSyncSession={setSyncSession}
         />
@@ -947,11 +955,12 @@ function ChatPageContent() {
               animate={{ width: 380, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ type: "spring", stiffness: 180, damping: 22 }}
-              className="hidden lg:block lg:shrink-0 h-full overflow-hidden border-l border-border bg-background"
+              className="hidden lg:block lg:shrink-0 h-full overflow-hidden p-1 pr-0 bg-transparent"
             >
-              <div className="w-[380px] h-full">
+              <div className="w-full h-full overflow-hidden rounded-tl-2xl rounded-bl-2xl border border-border bg-background shadow-2xl">
                 <UserProfile
                   user={otherUser}
+                  conversationId={activeId}
                   onClose={closeProfile}
                   onMessageClick={closeProfile}
                 />
@@ -967,6 +976,7 @@ function ChatPageContent() {
             >
               <UserProfile
                 user={otherUser}
+                conversationId={activeId}
                 onClose={closeProfile}
                 onMessageClick={closeProfile}
               />
@@ -1003,6 +1013,15 @@ function ChatPageContent() {
         } : null}
         onAccept={() => {
           if (!activeInvite || !socket) return;
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("vyra:media:pauseAll"));
+            document.querySelectorAll("audio").forEach((a) => {
+              try {
+                a.pause();
+                a.currentTime = 0;
+              } catch { }
+            });
+          }
           socket.emit("musicSyncResponse", {
             conversationId: activeInvite.conversationId,
             allowed: true,

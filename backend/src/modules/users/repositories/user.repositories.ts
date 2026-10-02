@@ -95,6 +95,8 @@ export class UserRepository {
                 username: true,
                 displayName: true,
                 avatarUrl: true,
+                bannerUrl: true,
+                bio: true,
                 profileVisibility: true,
             },
         });

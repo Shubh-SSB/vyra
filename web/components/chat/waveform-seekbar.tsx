@@ -84,8 +84,8 @@ export default function WaveformSeekbar({
         const bars = peaksRef.current;
         const prog = progressRef.current;
         const own = isOwnRef.current;
-        const barGap = 2;
-        const barW = (W - (bars.length - 1) * barGap) / bars.length;
+        const barGap = 1.5;
+        const barW = (W - (bars.length - 6) * barGap) / bars.length;
         const centerY = H / 2;
         const radius = Math.min(Math.max(1, barW / 2), 3);
 
@@ -127,19 +127,18 @@ export default function WaveformSeekbar({
         // Playhead
         if (prog > 0 && prog < 100) {
             const headX = (prog / 100) * W;
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([2, 2]);
+            ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+            ctx.lineWidth = 4;
+            ctx.lineCap = "round";
             ctx.beginPath();
-            ctx.moveTo(headX, 0);
-            ctx.lineTo(headX, H);
+            ctx.moveTo(headX, ctx.lineWidth / 2);
+            ctx.lineTo(headX, H - ctx.lineWidth / 2);
             ctx.stroke();
-            ctx.setLineDash([]);
 
             ctx.beginPath();
-            ctx.arc(headX, centerY, 3.5, 0, Math.PI * 2);
-            ctx.fillStyle = own ? "#c97955" : "#ffffff";
-            ctx.fill();
+            // ctx.arc(headX, centerY, 3.5, 0, Math.PI * 2);
+            // ctx.fillStyle =  ? "#c97955" : "#ffffff";
+            // ctx.fill();own
         }
     }, []);
 

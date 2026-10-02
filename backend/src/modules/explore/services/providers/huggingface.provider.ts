@@ -2,9 +2,11 @@ import { RichObject } from "../../types/explore.types";
 
 export class HuggingFaceProvider {
     async search(query: string): Promise<RichObject[]> {
-        if (!query) return [];
+        const q = query?.trim();
         try {
-            const url = `https://huggingface.co/api/models?search=${encodeURIComponent(query)}&limit=10&full=true`;
+            const url = q
+                ? `https://huggingface.co/api/models?search=${encodeURIComponent(q)}&limit=12&full=true`
+                : `https://huggingface.co/api/models?sort=downloads&direction=-1&limit=12&full=true`;
             const response = await fetch(url, {
                 headers: { "User-Agent": "Vyra-App" }
             });

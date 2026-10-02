@@ -49,6 +49,7 @@ type Props = {
     onToggleProfile?: () => void;
     isFriend?: boolean;
     myShowLastSeen?: boolean;
+    myShowReadReceipts?: boolean;
     socket?: any;
     syncSession?: any;
     setSyncSession?: (session: any) => void;
@@ -69,6 +70,7 @@ export default function ChatArea({
     onToggleProfile,
     isFriend = true,
     myShowLastSeen,
+    myShowReadReceipts,
     socket,
     syncSession,
     setSyncSession,
@@ -210,8 +212,11 @@ export default function ChatArea({
             isOnline: otherParticipant.user.isOnline,
             lastSeen: otherParticipant.user.lastSeen,
             bio: (otherParticipant.user as any).bio || undefined,
+            showReadReceipts: otherParticipant.user.showReadReceipts ?? true,
         }
         : null;
+
+    const showReadReceipts = (myShowReadReceipts !== false) && (otherParticipant?.user?.showReadReceipts !== false);
 
     const otherUserTyping = conversationId ? !!typingConversations[conversationId] : false;
 
@@ -502,6 +507,7 @@ export default function ChatArea({
                     isLoading={historyLoading}
                     isTyping={otherUserTyping}
                     otherParticipantLastReadAt={otherParticipant?.lastReadAt}
+                    showReadReceipts={showReadReceipts}
                     sendReaction={sendReaction}
                     onReply={setReplyingTo}
                     fetchNextPage={fetchNextPage}

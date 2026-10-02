@@ -73,14 +73,32 @@ export class UsersService {
                 return UserMapper.toProfileResponse(user, showOnlineStatus, showLastSeenTime);
             }
 
-            throw new ForbiddenException(
-                "This profile is private.",
-            );
+            return {
+                id: user.id,
+                username: user.username,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl,
+                bannerUrl: user.bannerUrl,
+                bio: null,
+                lastSeen: null,
+                isOnline: false,
+                profileVisibility: user.profileVisibility,
+                messagePrivacy: user.messagePrivacy,
+            };
 
         case "PRIVATE":
-            throw new ForbiddenException(
-                "This profile is private.",
-            );
+            return {
+                id: user.id,
+                username: user.username,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl,
+                bannerUrl: user.bannerUrl,
+                bio: null,
+                lastSeen: null,
+                isOnline: false,
+                profileVisibility: user.profileVisibility,
+                messagePrivacy: user.messagePrivacy,
+            };
     }
 }
 

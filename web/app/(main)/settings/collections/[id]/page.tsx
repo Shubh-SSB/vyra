@@ -139,7 +139,7 @@ export default function CollectionDetailPage() {
                                                         </span>
                                                     </div>
                                                     <p className={cn(
-                                                        "text-[13px] text-muted-foreground leading-relaxed break-words",
+                                                        "text-[13px] text-main leading-relaxed break-words",
                                                         msg.deletedAt && "italic opacity-50"
                                                     )}>
                                                         {msg.deletedAt ? "This message was deleted" : msg.content}

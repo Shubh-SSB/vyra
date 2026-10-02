@@ -132,7 +132,7 @@ export function useChatSocket({
             onTypingStopRef.current?.(payload);
         };
 
-        const handleMessagesRead = (payload: { conversationId: string; userId: string; lastReadAt: string }) => {
+        const handleMessagesRead = (payload: { conversationId: string; userId: string; lastReadAt: string; showReadReceipts?: boolean }) => {
             onMessagesReadRef.current?.(payload);
         };
 
